@@ -76,8 +76,9 @@ def get_drugs_for_disease(chosen_indication_label, distance_metric='angular'):
 
     drug_candidates_indices = drug_vector_db.nearest_neighbors(query, distance_metric, num_recommendations)
 
-    drug_candidates_labels = [map_drug_diffusion_indices_to_labels[i] for i in drug_candidates_indices]
-    drug_candidates_names = [graph_manager.mapping_drug_label_to_name[i] for i in drug_candidates_labels]
+    drug_candidates_labels = [map_drug_diffusion_indices_to_labels[index] for index in drug_candidates_indices]
+    #drug_candidates_names = [graph_manager.mapping_drug_label_to_name[i] for i in drug_candidates_labels]
+    drug_candidates_names = [graph_manager.mapping_all_labels_to_names[label] for label in drug_candidates_labels]
 
 
     return drug_candidates_names # List
