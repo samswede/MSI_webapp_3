@@ -60,7 +60,7 @@ drug_vector_db.add_vectors(drug_diffusion_profiles, map_drug_diffusion_labels_to
 # Define core recommendation function
 #====================================================================================================================
 
-def get_drugs_for_disease(chosen_indication_label, distance_metric='angular'):
+def get_drugs_for_disease(chosen_indication_label, distance_metric='manhattan'):
     
     # Translate indication name to index in indication diffusion profiles, to retrieve diffusion profile
     #chosen_indication_label = graph_manager.mapping_indication_name_to_label[chosen_indication_name]

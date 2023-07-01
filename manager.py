@@ -273,13 +273,13 @@ class GraphManager:
                 node_colors[node] = '#7F8C8D '  # dark grey color for proteins
                 node_shapes[node] = 'ellipse'  # circle for proteins
             elif self.node_types[node] == 'bio':
-                node_colors[node] = '#2ECC71'  # green color for biological functions
+                node_colors[node] = '#2ECC71'  # green, #2ECC71 color for biological functions
                 node_shapes[node] = 'box'  # square for biological functions
             elif self.node_types[node] == 'drug':
-                node_colors[node] = '#03A9F4'  # blue color for drugs
+                node_colors[node] = '#439AD9'  # blue, #03A9F4 color for drugs
                 node_shapes[node] = 'triangle'  # triangle for drugs
             elif self.node_types[node] == 'indication':
-                node_colors[node] = '#F44336'  # red #F44336 color for indications
+                node_colors[node] = '#DD614A'  # red, #F44336, #DD614A color for indications
                 node_shapes[node] = 'triangleDown'  # triangle for indications
 
         return subgraph, node_colors, node_shapes
