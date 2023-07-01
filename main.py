@@ -44,13 +44,13 @@ data_path = './data/'
 graph_manager = GraphManager(data_path)
 
 # Load diffusion profiles
-with np.load('compressed_diffusion_profiles.npz') as data:
+with np.load(f'{data_path}compressed_diffusion_profiles.npz') as data:
     drug_diffusion_profiles = data['arr1']
     indication_diffusion_profiles = data['arr2']
 
-map_drug_diffusion_labels_to_indices = load_data_dict('map_drug_labels_to_indices')
+map_drug_diffusion_labels_to_indices = load_data_dict(f'{data_path}map_drug_labels_to_indices')
 map_drug_diffusion_indices_to_labels = {v: k for k, v in map_drug_diffusion_labels_to_indices.items()}
-map_indication_diffusion_labels_to_indices = load_data_dict('map_indication_labels_to_indices')
+map_indication_diffusion_labels_to_indices = load_data_dict(f'{data_path}map_indication_labels_to_indices')
 map_indication_diffusion_indices_to_labels = {v: k for k, v in map_indication_diffusion_labels_to_indices.items()}
 
 drug_vector_db = MultiMetricDatabase(dimensions=drug_diffusion_profiles.shape[1], metrics=['angular', 'euclidean', 'manhattan'], n_trees=30)
