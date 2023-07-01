@@ -9,7 +9,7 @@ $(document).ready(function() {
 
     // Initialize the slider 1
     $('#slider-1').slider({
-        min: 10,
+        min: 20,
         max: 100,
         start: 20,
         step: 5,
@@ -19,7 +19,7 @@ $(document).ready(function() {
     });
     // Initialize the slider 2
     $('#slider-2').slider({
-        min: 10,
+        min: 20,
         max: 100,
         start: 20,
         step: 5,
@@ -38,6 +38,48 @@ $(document).ready(function() {
 
         // Initialize the dropdown
         $('#dropdown-1').dropdown();
+    });
+
+    // Button 2, Find Drug Candidates
+    // Updates the Dropdown 2 list
+    // Event handlers for buttons
+    $('#btn-2').click(function() {
+        
+        // Log that onChange is being triggered
+        console.log('Find Drug Candidates Button triggered');
+
+        var disease_label = $('#dropdown-1').dropdown('get value');
+
+        // Log the name chosen disease from the Dropdown 1
+        console.log("Chosen Disease label: " + disease_label);
+
+        // Here you can send the disease_name, drug_name, k1 and k2 to your server and get the response
+        // Example:
+        $.ajax({
+            url: 'http://127.0.0.1:8000/drugs_for_disease',
+            type: 'POST',
+            data: JSON.stringify({ 
+                disease_label: disease_label
+            }),
+            contentType: "application/json; charset=utf-8",
+            dataType: 'json',
+            success: function(drug_candidates) {
+                // Clear any existing items in the dropdown
+                $dropdown2.empty();
+                // Loop through each state in the returned data
+                $.each(drug_candidates, function(i, drug) {
+                    // Append a new dropdown item for each state
+                    $dropdown2.append('<div class="item" data-value="' + drug.value + '">' + drug.name + '</div>');
+                });
+
+                // Initialize the dropdown
+                $('#dropdown-2').dropdown();
+            },
+            error: function (request, status, error) {
+                console.error('Error occurred:', error);
+            }
+
+        });
     });
 
     // Dropdown 2

@@ -60,10 +60,10 @@ drug_vector_db.add_vectors(drug_diffusion_profiles, map_drug_diffusion_labels_to
 # Define core recommendation function
 #====================================================================================================================
 
-def get_drugs_for_disease(chosen_indication_name, distance_metric='angular'):
+def get_drugs_for_disease(chosen_indication_label, distance_metric='angular'):
     
     # Translate indication name to index in indication diffusion profiles, to retrieve diffusion profile
-    chosen_indication_label = graph_manager.mapping_indication_name_to_label[chosen_indication_name]
+    #chosen_indication_label = graph_manager.mapping_indication_name_to_label[chosen_indication_name]
     chosen_indication_index = map_indication_diffusion_labels_to_indices[chosen_indication_label]
     chosen_indication_diffusion_profile = indication_diffusion_profiles[chosen_indication_index]
 
@@ -95,6 +95,9 @@ class Disease(BaseModel):
 class Drug(BaseModel):
     value: str
     name: str
+
+class DiseaseDrugCandidatesRequest(BaseModel):
+    disease_label: str
 
 class GraphRequest(BaseModel):
     disease_label: str
@@ -130,12 +133,12 @@ async def get_diseases():
     return list_of_drugs
 
 @app.post("/drugs_for_disease", response_model= List[Drug])
-async def get_drugs_for_selected_disease(disease: Disease):
+async def get_drugs_for_selected_disease(disease_drug_candidates_request: DiseaseDrugCandidatesRequest):
     """Return a list of drugs based on the selected disease"""
 
-    assert isinstance(disease.name, str)
+    assert isinstance(disease_drug_candidates_request.disease_label, str)
 
-    drug_candidates = get_drugs_for_disease(disease.name)
+    drug_candidates = get_drugs_for_disease(disease_drug_candidates_request.disease_label)
     list_of_drug_candidates = [
         {"value": graph_manager.mapping_drug_name_to_label[name], "name": name}
         for name in drug_candidates
