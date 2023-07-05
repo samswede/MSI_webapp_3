@@ -19,27 +19,9 @@ def save_data_dict(file_name, map_labels_to_indices):
     pass
 
 
-class ANNOY_VectorDatabase:
-    def __init__(self, dimensions, map_indices_to_labels, n_trees=10):
-        self.dimensions = dimensions
-        self.n_trees = n_trees
-        self.index = AnnoyIndex(self.dimensions, 'angular')
-        self.labels_map = map_indices_to_labels  # Initialize with your existing map
-
-    def add_vectors(self, vectors):
-        assert vectors.shape[1] == self.dimensions
-        for idx, vector in enumerate(vectors):
-            self.index.add_item(idx, vector.tolist())
-        self.index.build(self.n_trees)
-
-    def nearest_neighbors(self, query, k=10):
-        indices = self.index.get_nns_by_vector(query.tolist()[0], k)
-        label_indices = [self.labels_map[idx] for idx in indices]
-        return label_indices
-
 
 class MultiMetricDatabase:
-    def __init__(self, dimensions, metrics=['angular'], n_trees=10):
+    def __init__(self, dimensions, metrics=['angular'], n_trees=20):
         self.dimensions = dimensions
         self.n_trees = n_trees
         self.metrics = metrics
