@@ -70,11 +70,17 @@ class GraphManager:
         return drug_to_protein, indication_to_protein, protein_to_protein, protein_to_bio, bio_to_bio
 
     def create_MSI_graph(self):
-        'The optimal weights for the multiscale interactome are '
-        'wdrug = 3.21, wdisease = 3.54, wprotein = 4.40,'
-        ' whigher-level biological function = 2.10, wlower-level biological function = 4.49, wbiological function = 6.58'
-        'α = 0.860'
-        'use the correlation distance to compare r(c) and r(d) (Fig. 2b, c).'
+        """
+        The optimal weights for the multiscale interactome are
+        wdrug = 3.21
+        wdisease = 3.54
+        wprotein = 4.40,
+        whigher-level biological function = 2.10
+        wlower-level biological function = 4.49
+        wbiological function = 6.58
+        α = 0.860'
+        use the correlation distance to compare r(c) and r(d) (Fig. 2b, c).
+        """
         
         
         MSI = nx.DiGraph()
