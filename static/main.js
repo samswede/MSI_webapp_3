@@ -1,10 +1,10 @@
 $(document).ready(function() {
 
     // Initialize dropdowns
-    $('#dropdown-1').dropdown();
-    $('#dropdown-2').dropdown();
-    var $dropdown1 = $('#dropdown-1 .menu');
-    var $dropdown2 = $('#dropdown-2 .menu');
+    $('#drop-down-1').dropdown();
+    $('#drop-down-2').dropdown();
+    var $dropdown1 = $('#drop-down-1 .menu');
+    var $dropdown2 = $('#drop-down-2 .menu');
 
 
     // Initialize the slider 1
@@ -30,14 +30,24 @@ $(document).ready(function() {
 
     // Dropdown 1
     $.getJSON('http://127.0.0.1:8000/diseases', function(diseases) {
+
+        // Log that fetching diseases has being triggered
+        console.log('Fetching diseases has being triggered');
+
         // Loop through each state in the returned data
         $.each(diseases, function(i, disease) {
             // Append a new dropdown item for each state
             $dropdown1.append('<div class="item" data-value="' + disease.value + '">' + disease.name + '</div>');
         });
 
+        // Log that all diseases have been appended 
+        console.log('All diseases have been appended ');
+
         // Initialize the dropdown
-        $('#dropdown-1').dropdown();
+        $('#drop-down-1').dropdown();
+
+        // Log that dropdown 1 initialised
+        console.log('dropdown 1 initialised');
     });
 
     // Button 2, Find Drug Candidates
@@ -48,7 +58,7 @@ $(document).ready(function() {
         // Log that onChange is being triggered
         console.log('Find Drug Candidates Button triggered');
 
-        var disease_label = $('#dropdown-1').dropdown('get value');
+        var disease_label = $('#drop-down-1').dropdown('get value');
 
         // Log the name chosen disease from the Dropdown 1
         console.log("Chosen Disease label: " + disease_label);
@@ -73,7 +83,7 @@ $(document).ready(function() {
                 });
 
                 // Initialize the dropdown
-                $('#dropdown-2').dropdown();
+                $('#drop-down-2').dropdown();
             },
             error: function (request, status, error) {
                 console.error('Error occurred:', error);
@@ -129,8 +139,8 @@ $(document).ready(function() {
         // Log that onChange is being triggered
         console.log('Generate Button triggered');
 
-        var disease_label = $('#dropdown-1').dropdown('get value');
-        var drug_label = $('#dropdown-2').dropdown('get value');
+        var disease_label = $('#drop-down-1').dropdown('get value');
+        var drug_label = $('#drop-down-2').dropdown('get value');
         var k1 = $('#slider-1').slider('get value');
         var k2 = $('#slider-2').slider('get value');
 
@@ -155,8 +165,10 @@ $(document).ready(function() {
             dataType: 'json',
             success: function(response) {
                 // Handle the response from your server
-                //console.log("Graph Response: ", JSON.stringify(response));;
+                console.log("Graph Response: ", JSON.stringify(response));
+
                 graphData = response.MOA_network;
+                
 
                 // Use vis-network to render the graphs
                 new vis.Network(MOA_network, graphData, {});
