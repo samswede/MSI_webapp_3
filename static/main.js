@@ -11,7 +11,7 @@ $(document).ready(function() {
     $('#slider-1').slider({
         min: 20,
         max: 100,
-        start: 20,
+        start: 30,
         step: 5,
         onChange: function(value) {
           console.log("Value of slider 1: " + value);  // Log the value when slider value changes
@@ -21,7 +21,7 @@ $(document).ready(function() {
     $('#slider-2').slider({
         min: 20,
         max: 100,
-        start: 20,
+        start: 30,
         step: 5,
         onChange: function(value) {
           console.log("Value of slider 2: " + value);  // Log the value when slider value changes
@@ -168,3 +168,260 @@ $(document).ready(function() {
         });
     });
 });
+
+window.addEventListener('DOMContentLoaded', (event) => {
+    // Get the elements with the 'fade-in' and 'fade-in-no-delay' class
+    const fadeInElements = document.querySelectorAll('.fade-in');
+    const fadeInNoDelayElements = document.querySelectorAll('.fade-in-no-delay');
+    // Add the 'visible' class to the elements
+    fadeInElements.forEach(function (element) {
+        element.classList.add('visible');
+    });
+    fadeInNoDelayElements.forEach(function (element) {
+        element.classList.add('visible');
+    });
+});
+
+document.addEventListener("DOMContentLoaded", function(){
+    tippy('#btn-2', {
+      theme: 'custom',
+      arrow: false,
+      animation: 'fade',
+      content: "Click to rank potential drug candidates based on their estimated impact on the selected disease.",
+    });
+    tippy('#Menu-1', {
+      theme: 'custom',
+      arrow: false,
+      animation: 'fade',
+      content: "Select a disease that you're interested in exploring potential treatments for.",
+    });
+    tippy('#Menu-2', {
+      theme: 'custom',
+      arrow: false,
+      animation: 'fade',
+      content: "Choose a drug to investigate its potential interactions with the selected disease.",
+    });
+    tippy('#Help-Button', {
+      theme: 'custom',
+      arrow: false,
+      animation: 'fade',
+      content: "Need Help? Click for User Guide",
+    });
+    tippy('#btn-1', {
+      theme: 'custom',
+      arrow: false,
+      animation: 'fade',
+      content: "Click this button to produce a visual map of the potential interactions between the chosen disease and drug.",
+    });
+    tippy('#Slider-1', {
+      theme: 'custom',
+      arrow: false,
+      animation: 'fade',
+      content: "Use this slider to adjust the range of the disease's impact on the body.",
+    });
+        tippy('#Slider-2', {
+      theme: 'custom',
+      arrow: false,
+      animation: 'fade',
+      content: "This slider allows you to control the projected reach of the drug in the body.",
+    });
+});
+
+particlesJS('particles-js',
+  // Paste your entire JSON data here.
+	{
+  "particles": {
+    "number": {
+      "value": 139,
+      "density": {
+        "enable": true,
+        "value_area": 600
+      }
+    },
+    "color": {
+      "value": "#dd614a"
+    },
+    "shape": {
+      "type": "circle",
+      "stroke": {
+        "width": 0,
+        "color": "#000000"
+      },
+      "polygon": {
+        "nb_sides": 3
+      },
+      "image": {
+        "src": "..static/github.svg",
+        "width": 100,
+        "height": 100
+      }
+    },
+    "opacity": {
+      "value": 0.5,
+      "random": true,
+      "anim": {
+        "enable": false,
+        "speed": 1,
+        "opacity_min": 0.1,
+        "sync": false
+      }
+    },
+    "size": {
+      "value": 2,
+      "random": true,
+      "anim": {
+        "enable": false,
+        "speed": 19.446267532025583,
+        "size_min": 1,
+        "sync": false
+      }
+    },
+    "line_linked": {
+      "enable": true,
+      "distance": 150,
+      "color": "#73a580",
+      "opacity": 0.3,
+      "width": 1
+    },
+    "move": {
+      "enable": true,
+      "speed": 6,
+      "direction": "none",
+      "random": false,
+      "straight": false,
+      "out_mode": "out",
+      "bounce": false,
+      "attract": {
+        "enable": true,
+        "rotateX": 600,
+        "rotateY": 1200
+      }
+    }
+  },
+  "interactivity": {
+    "detect_on": "canvas",
+    "events": {
+      "onhover": {
+        "enable": true,
+        "mode": "repulse"
+      },
+      "onclick": {
+        "enable": true,
+        "mode": "bubble"
+      },
+      "resize": true
+    },
+    "modes": {
+      "grab": {
+        "distance": 400,
+        "line_linked": {
+          "opacity": 1
+        }
+      },
+      "bubble": {
+        "distance": 303.84793018789975,
+        "size": 2.5,
+        "duration": 0.24307834415031981,
+        "opacity": 1,
+        "speed": 3
+      },
+      "repulse": {
+        "distance": 129.64178354683722,
+        "duration": 0.4
+      },
+      "push": {
+        "particles_nb": 4
+      },
+      "remove": {
+        "particles_nb": 2
+      }
+    }
+  },
+  "retina_detect": true
+}
+)
+
+class TextScramble {
+    constructor(el) {
+      this.el = el
+      this.chars = '!<>-_\\/[]{}—=+*^?#________'
+      this.update = this.update.bind(this)
+    }
+    setText(newText) {
+      const oldText = this.el.innerText
+      const length = Math.max(oldText.length, newText.length)
+      const promise = new Promise((resolve) => this.resolve = resolve)
+      this.queue = []
+      for (let i = 0; i < length; i++) {
+        const from = oldText[i] || ''
+        const to = newText[i] || ''
+        const start = Math.floor(Math.random() * 40)
+        const end = start + Math.floor(Math.random() * 40)
+        this.queue.push({ from, to, start, end })
+      }
+      cancelAnimationFrame(this.frameRequest)
+      this.frame = 0
+      this.update()
+      return promise
+    }
+    update() {
+      let output = ''
+      let complete = 0
+      for (let i = 0, n = this.queue.length; i < n; i++) {
+        let { from, to, start, end, char } = this.queue[i]
+        if (this.frame >= end) {
+          complete++
+          output += to
+        } else if (this.frame >= start) {
+          if (!char || Math.random() < 0.28) {
+            char = this.randomChar()
+            this.queue[i].char = char
+          }
+          output += `<span class="dud">${char}</span>`
+        } else {
+          output += from
+        }
+      }
+      this.el.innerHTML = output
+      if (complete === this.queue.length) {
+        this.resolve()
+      } else {
+        this.frameRequest = requestAnimationFrame(this.update)
+        this.frame++
+      }
+    }
+    randomChar() {
+      return this.chars[Math.floor(Math.random() * this.chars.length)]
+    }
+  }
+  //Here is where you can change the words
+  const phrases = [
+    'Exploring the Multiscale Interactome',
+  ]
+  const phrases2 = [
+    'Visualize and explore the hidden connections between diseases and potential drug treatments.',
+  ]
+  const el = document.querySelector('.scramble-text')
+  const el2 = document.querySelector('.scramble-text-delay')
+  const fx = new TextScramble(el)
+  const fx2 = new TextScramble(el2)
+  let counter = 0
+  const next = () => {
+    if(counter < phrases.length){
+      fx.setText(phrases[counter]).then(() => {
+        setTimeout(next, 800)
+      })
+      counter++
+    }
+  }
+  let counter2 = 0
+  const next2 = () => {
+    if(counter2 < phrases2.length){
+      fx2.setText(phrases2[counter2]).then(() => {
+        setTimeout(next2, 800)
+      })
+      counter2++
+    }
+  }
+  next()
+  setTimeout(next2, 1500) // 2 seconds delay before starting the second scramble
