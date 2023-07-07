@@ -28,9 +28,19 @@ $(document).ready(function() {
         }
     });
 
-    // Dropdown 1
-    $.getJSON('http://127.0.0.1:8000/diseases', function(diseases) {
 
+var API_URL;
+if (window.location.hostname === "localhost") {
+API_URL = "http://localhost:8080";
+} else {
+API_URL = "https://primal-hybrid-391911.ew.r.appspot.com";
+// API_URL = "http://localhost:8080";
+}
+
+    // Dropdown 1
+    // $.getJSON(API_URL + 'diseases', function(diseases) {
+      $.getJSON('http://localhost:8080/diseases', function(diseases) {
+      
         // Log that fetching diseases has being triggered
         console.log('Fetching diseases has being triggered');
 
@@ -66,7 +76,7 @@ $(document).ready(function() {
         // Here you can send the disease_name, drug_name, k1 and k2 to your server and get the response
         // Example:
         $.ajax({
-            url: 'http://127.0.0.1:8000/drugs_for_disease',
+            url: 'http://localhost:8080/drugs_for_disease',
             type: 'POST',
             data: JSON.stringify({ 
                 disease_label: disease_label
@@ -108,7 +118,7 @@ $(document).ready(function() {
             // The value will contain the selected disease value
             // Send a post request for 
             $.ajax({
-                url: 'http://127.0.0.1:8000/drugs_for_disease',
+                url: 'http://localhost:8080/diseases',
                 type: 'POST',
                 data: JSON.stringify({ name: value }), 
                 contentType: "application/json; charset=utf-8",
@@ -153,7 +163,7 @@ $(document).ready(function() {
         // Here you can send the disease_name, drug_name, k1 and k2 to your server and get the response
         // Example:
         $.ajax({
-            url: 'http://127.0.0.1:8000/graph',
+            url:'http://localhost:8080/graph',
             type: 'POST',
             data: JSON.stringify({ 
                 disease_label: disease_label,

@@ -26,6 +26,8 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 origins = [
     "http://localhost",
     "http://127.0.0.1:8000",
+    "https://primal-hybrid-391911.ew.r.appspot.com", #New for google cloud
+    "http://localhost:8080",  # Allow your local frontend to access the server
 ]
 
 app.add_middleware(
@@ -125,7 +127,7 @@ async def get_diseases():
     return list_of_diseases
 
 @app.get("/drugs", response_model= List[Drug])
-async def get_diseases():
+async def get_drugs():
     """Return a list of diseases"""
     list_of_drugs = [
         {"value": graph_manager.mapping_drug_name_to_label[name], "name": name}

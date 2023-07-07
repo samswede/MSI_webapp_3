@@ -89,8 +89,9 @@ a {
   flex: 1;
   justify-content: flex-start;
   align-items: center;
-  padding: 24px 0;
+  padding-top: 24px;
   display: flex;
+  
 }
 
 .parameter-columns {
@@ -114,14 +115,16 @@ a {
 
 .graph-section {
   width: 100%;
+  height: 500px;
   grid-column-gap: 0px;
   grid-row-gap: 0px;
   flex-direction: column;
   justify-content: flex-start;
   align-items: center;
-  padding-top: 64px;
-  padding-bottom: 64px;
+  padding-top: 5vh;
+  padding-bottom: 5vh;
   display: flex;
+  background-color: #f6f6f6;
 }
 
 .slider-menu {
@@ -253,17 +256,20 @@ a {
   padding: 24px 24px 0;
   display: flex;
 }
-
 .graph-container {
   width: 90%;
+  height: 80vh;
   grid-column-gap: 0px;
   grid-row-gap: 0px;
-  background-color: #f8f8f8;
+  background-color: #f6f6f6;
   flex-direction: column;
+  flex-grow: 1;
   justify-content: flex-start;
   align-items: center;
-  padding: 24px;
+  padding: 12px;
   display: flex;
+  border: 2px solid #F48668;
+  border-radius: 10px;
 }
 
 .slider-1 {
@@ -374,6 +380,7 @@ a {
   padding-top: 0;
   padding-bottom: 0;
   display: flex;
+  /* overflow: scroll */
 }
 
 .d-120-left-line {
@@ -556,7 +563,7 @@ a {
   z-index: 49;
   background-color: rgba(255, 255, 255, .7);
   background-image: none;
-  display: block;
+  /* display: block; */
   position: fixed;
   top: 0%;
   bottom: 0%;
@@ -707,7 +714,7 @@ a {
 
 .interactive-section {
   width: 100%;
-  height: 100vh;
+  /* height: 100vh; */ 
   flex-direction: column;
   justify-content: flex-start;
   align-items: center;
@@ -976,7 +983,7 @@ a {
   }
 
   .parameter-section {
-    margin-top: 10vh;
+    margin-top: 2vh;
   }
 
   .d-120-project-title {
@@ -1257,10 +1264,10 @@ a {
     width: 100%;
     justify-content: space-between;
   }
-
+/* 
   .graph-container {
     width: 100%;
-  }
+  } */
 
   .menu, .menu-2 {
     font-size: 16px;
@@ -1288,7 +1295,7 @@ a {
   }
 
   .page-overlay {
-    display: none;
+    display: visible;
   }
 
   .menu-wrapper {
@@ -1319,6 +1326,6 @@ a {
 
 .div-block {
   width: 100%;  
-  height: 800px;
+  height: 100%;
   background-color: #F6F6F6;
 }
