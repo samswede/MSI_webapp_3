@@ -1,4 +1,3 @@
-
 import pandas as pd
 import numpy as np
 import networkx as nx
@@ -6,10 +5,15 @@ import matplotlib.pyplot as plt
 
 from memory_profiler import profile
 
+import pickle
+import gzip
+
+
 class GraphManager:
-    @profile
+    #@profile
     def __init__(self, data_path):
 
+        """ Memory Inefficient Loading:
         #=====================
         # Load and transform data
         #=====================
@@ -26,42 +30,62 @@ class GraphManager:
 
         # Create node mappings and sort names
         self.create_node_dictionaries_and_sort_names()
-
         
-        #=====================
-        # Index Graph
-        #=====================
-        # Create an MSI graph where nodes are numbered, rather than labelled.
-        # This is necessary for the walker library to perform random walks and make a diffusion profile.
+        """
 
-        # Create a mapping from the old labels to new labels
-        self.mapping_original_to_index = {node: i for i, node in enumerate(self.MSI.nodes)}
-        self.mapping_index_to_original = {v: k for k, v in self.mapping_original_to_index.items()}
-        
-        self.H = self.create_relabelled_graph(self.MSI, self.mapping_original_to_index)
-
-        self.H_node_labels = np.array(self.H.nodes()).tolist()
-        self.H_size_graph = len(self.H_node_labels)
-
-        #=====================
-        # Names Graph
-        #=====================
-        # Create an MSI graph where nodes are full names, rather than labelled.
-        # This is necessary for displaying the graph in an interpretable way
-
-        # Create a mapping from the old labels to new labels
-        self.mapping_all_labels_to_names = self.create_label_to_name_dictionaries()
-        #self.mapping_all_names_to_labels = {v: k for k, v in self.mapping_all_labels_to_names.items()}
-        
-        #self.MSI_names = self.create_relabelled_graph(self.MSI, self.mapping_all_labels_to_names)
-
-        #self.MSI_node_names = np.array(self.MSI_names.nodes()).tolist()
-        #self.MSI_size_graph = len(self.MSI_node_names)
+        """ Memory Efficient Loading
+        """
+        self.load_MSI_graph()
+        self.load_dicts()
+        self.load_mapping_all_labels_to_names()
+        self.load_node_types()
 
         #&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
         # Build MSI Graph
         #&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+    def save_mapping_all_labels_to_names(self):
+        with gzip.open('mapping_all_labels_to_names.pkl.gz', 'wb') as f:
+            pickle.dump(self.mapping_all_labels_to_names, f)
+    #@profile
+    def load_mapping_all_labels_to_names(self):
+        with gzip.open('mapping_all_labels_to_names.pkl.gz', 'rb') as f:
+            self.mapping_all_labels_to_names = pickle.load(f)
+    
+    def save_node_types(self):
+        with gzip.open('node_types.pkl.gz', 'wb') as f:
+            pickle.dump(self.node_types, f)
+    #@profile
+    def load_node_types(self):
+        with gzip.open('node_types.pkl.gz', 'rb') as f:
+            self.node_types = pickle.load(f)
 
+    def save_dicts(self):
+        dict_names = ["mapping_label_to_index", "mapping_index_to_label", "mapping_drug_label_to_name", 
+                      "mapping_indication_label_to_name", "mapping_drug_name_to_label", "mapping_indication_name_to_label",
+                      "drug_names_sorted", "indication_names_sorted"]
+
+        for name in dict_names:
+            with gzip.open(f'{name}.pkl.gz', 'wb') as f:
+                pickle.dump(getattr(self, name), f)
+    #@profile
+    def load_dicts(self):
+        dict_names = ["mapping_label_to_index", "mapping_index_to_label", "mapping_drug_label_to_name", 
+                      "mapping_indication_label_to_name", "mapping_drug_name_to_label", "mapping_indication_name_to_label",
+                      "drug_names_sorted", "indication_names_sorted"]
+
+        for name in dict_names:
+            with gzip.open(f'{name}.pkl.gz', 'rb') as f:
+                setattr(self, name, pickle.load(f))
+
+    def save_MSI_graph(self, file_name):
+        nx.write_graphml(self.MSI, f"{file_name}.graphml")
+
+    #@profile
+    def load_MSI_graph(self):
+        self.MSI = nx.read_graphml("MSI_graph.graphml")
+        pass
+
+    #@profile
     def load_data(self, data_path):
         drug_to_protein = pd.read_csv(data_path + '1_drug_to_protein.tsv', sep='\t')
         indication_to_protein = pd.read_csv(data_path + '2_indication_to_protein.tsv', sep='\t')
@@ -71,6 +95,7 @@ class GraphManager:
         
         return drug_to_protein, indication_to_protein, protein_to_protein, protein_to_bio, bio_to_bio
     
+    #@profile
     def create_MSI_graph(self):
         'The optimal weights for the multiscale interactome are '
         'wdrug = 3.21, wdisease = 3.54, wprotein = 4.40,'
@@ -88,61 +113,20 @@ class GraphManager:
         self.add_nodes_to_graph(self.bio_to_bio, 'bio', 'bio', 6.5, MSI)
         return MSI
     
-    def create_H_graph(self):
-        'The optimal weights for the multiscale interactome are '
-        'wdrug = 3.21, wdisease = 3.54, wprotein = 4.40,'
-        ' whigher-level biological function = 2.10, wlower-level biological function = 4.49, wbiological function = 6.58'
-        'α = 0.860'
-        'use the correlation distance to compare r(c) and r(d) (Fig. 2b, c).'
-        
-        
-        H = nx.DiGraph()
-        self.node_types = {}
-        self.add_nodes_to_graph(self.drug_to_protein, 'drug', 'protein', 3.2, H)
-        self.add_nodes_to_graph(self.indication_to_protein, 'indication', 'protein', 3.5, H)
-        self.add_bidirectional_nodes_to_graph(self.protein_to_protein, 'protein', 'protein', 4.4, H)
-        self.add_bidirectional_nodes_to_graph(self.protein_to_bio, 'protein', 'bio', 4.5, H)
-        self.add_bidirectional_nodes_to_graph(self.bio_to_bio, 'bio', 'bio', 6, H)
-        return H
 
-
+    #@profile
     def add_nodes_to_graph(self, data_frame, node_type_1, node_type_2, weight, MSI):
-        #for i in range(len(data_frame)):
-        for i, (node_1, node_2) in enumerate(zip(data_frame['node_1'], data_frame['node_2'])):
-            node_1 = data_frame['node_1'].iloc[i]
-            node_2 = data_frame['node_2'].iloc[i]
+        for node_1, node_2 in zip(data_frame['node_1'], data_frame['node_2']):
             MSI.add_edge(node_1, node_2, weight= weight)
             self.node_types[node_1] = node_type_1
             self.node_types[node_2] = node_type_2
 
-
-    def add_bidirectional_nodes_to_graph(self, data_frame, node_type_1, node_type_2, weight, MSI):
-        #for i in range(len(data_frame)):
-        for i, (node_1, node_2) in enumerate(zip(data_frame['node_1'], data_frame['node_2'])):
-            node_1 = data_frame['node_1'].iloc[i]
-            node_2 = data_frame['node_2'].iloc[i]
-            MSI.add_edge(node_1, node_2, weight= weight)
-            MSI.add_edge(node_2, node_1, weight= weight)
-            self.node_types[node_1] = node_type_1
-            self.node_types[node_2] = node_type_2
 
         #&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
         # Create Dictionaries and Mappings
         #&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 
-    def test_node_order_preservation(self, num_walks, walk_length, alpha, starting_nodes):
-        # Save the node labels before creating the diffusion profile
-        original_node_labels = self.H_node_labels.copy()
-
-        # Create the diffusion profile
-        self.create_diffusion_profile(num_walks, walk_length, alpha, starting_nodes)
-
-        # Check if the node labels after creating the diffusion profile are the same as before
-        assert (original_node_labels == self.H_node_labels), "The node order was changed during the creation of the diffusion profile."
-
-        print("Test passed. The node order was preserved during the creation of the diffusion profile.")
-
-
+    #@profile
     def create_node_dictionaries_and_sort_names(self):
         mapping_label_to_name, mapping_name_to_label, self.mapping_label_to_index, self.mapping_index_to_label, names_sorted = self.create_node_dictionaries(self.drug_to_protein, self.indication_to_protein)
 
@@ -151,7 +135,7 @@ class GraphManager:
         self.mapping_drug_name_to_label, self.mapping_indication_name_to_label = mapping_name_to_label
         self.drug_names_sorted, self.indication_names_sorted = names_sorted
 
-
+    #@profile
     def create_node_dictionaries(self, drug_to_protein, indication_to_protein):
         # Get unique combinations of node_1 and node_1_name
         unique_drug_label_and_name = drug_to_protein[['node_1', 'node_1_name']].drop_duplicates()
@@ -180,7 +164,7 @@ class GraphManager:
 
         return mapping_label_to_name, mapping_name_to_label, mapping_label_to_index, mapping_index_to_label, names_sorted
 
-
+    #@profile
     def create_label_to_name_dictionaries(self):
         combined_dict_all_labels_to_names = {}
 
@@ -211,19 +195,11 @@ class GraphManager:
         return combined_dict_all_labels_to_names
 
 
-    def create_relabelled_graph(self, MSI, mapping):
-        H = nx.DiGraph()
-        H.add_nodes_from(mapping[node] for node in MSI.nodes)
-        H.add_edges_from((mapping[u], mapping[v]) for u, v in MSI.edges)
-
-        #H = nx.relabel_nodes(MSI, mapping)
-        return H
-
         #&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
         # Subgraph
         #&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 
-    @profile
+    #@profile
     def get_top_k_nodes(self, diffusion_profile, k):
         """
         Get the top k nodes from a diffusion profile.
@@ -236,9 +212,9 @@ class GraphManager:
         - list of str: The labels of the top k nodes.
         """
         # Check if inputs are valid
-        assert isinstance(diffusion_profile, np.ndarray), "diffusion_profile must be a numpy array"
-        assert isinstance(k, int), "k must be an integer"
-        assert k <= len(diffusion_profile), "k cannot be greater than the number of nodes in the graph"
+        #assert isinstance(diffusion_profile, np.ndarray), "diffusion_profile must be a numpy array"
+        #assert isinstance(k, int), "k must be an integer"
+        #assert k <= len(diffusion_profile), "k cannot be greater than the number of nodes in the graph"
         
         # Get the indices of the top k nodes
         top_k_indices = np.argsort(diffusion_profile)[-k:]
@@ -252,7 +228,7 @@ class GraphManager:
         
         return top_k_labels
 
-    @profile
+    #@profile
     def create_subgraph(self, top_k_node_labels):
         """
         Create a subgraph from the top k nodes and draw it.
@@ -293,57 +269,3 @@ class GraphManager:
 
         return subgraph, node_colors, node_shapes
     
-
-    def draw_subgraph(self, subgraph, node_colors, node_shapes):
-        
-        # Create a new figure and set the size
-        fig, ax = plt.subplots(figsize=(6, 6))
-
-        # Create a layout for our nodes 
-        layout = nx.spring_layout(subgraph)
-
-        # Draw nodes
-        for node_type in set(node_shapes.values()):
-            # Gather a list of nodes with the same shape
-            nodelist = [node for node, shape in node_shapes.items() if shape == node_type]
-            nx.draw_networkx_nodes(subgraph, layout, ax=ax, nodelist=nodelist, node_color=[node_colors[node] for node in nodelist], node_shape=node_type)
-
-        # Draw edges
-        nx.draw_networkx_edges(subgraph, layout, ax=ax)
-
-        # Draw labels
-        nx.draw_networkx_labels(subgraph, layout, ax=ax)
-
-        pass
-
-    def create_subgraph_figure(self, subgraph, node_colors, node_shapes):
-        
-        # Create a new figure and set the size
-        fig, ax = plt.subplots(figsize=(6, 6))
-
-        # Create a layout for our nodes 
-        layout = nx.spring_layout(subgraph)
-
-        # Draw nodes
-        for node_type in set(node_shapes.values()):
-            # Gather a list of nodes with the same shape
-            nodelist = [node for node, shape in node_shapes.items() if shape == node_type]
-            nx.draw_networkx_nodes(subgraph, layout, ax=ax, nodelist=nodelist, node_color=[node_colors[node] for node in nodelist], node_shape=node_type)
-
-        # Draw edges
-        nx.draw_networkx_edges(subgraph, layout, ax=ax)
-
-        # Draw labels
-        nx.draw_networkx_labels(subgraph, layout, ax=ax)
-
-        return fig
-
-    def get_create_and_draw_subgraph(self, diffusion_profile, k_nodes):
-        # Get top_k_nodes from diffusion profile
-        top_k_nodes = self.get_top_k_nodes(diffusion_profile, k_nodes)
-
-        subgraph, node_colors, node_shapes = self.create_subgraph(top_k_nodes)
-
-        self.draw_subgraph(subgraph, node_colors, node_shapes)
-
-        pass

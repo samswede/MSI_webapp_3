@@ -1,3 +1,10 @@
+#
+scrap.py
+MSI_graph.graphml
+nodes.csv
+edges.csv
+drug_candidates.csv
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
