@@ -7,52 +7,35 @@ import numpy as np
 import gc
 
 
-def load_MSI_csv_into_neo4j(neo4j_uri, neo4j_user, neo4j_password, nodes_csv_path, edges_csv_path):
-    """
-    Ensure that nodes.csv and edges.csv are located in the import directory of your Neo4j instance. This is typically $NEO4J_HOME/import for a local installation.
-
-    Keep in mind that Neo4j’s LOAD CSV expects URLs relative to the $NEO4J_HOME/import directory. Files should be put in this directory to be found.
-
-    The LOAD CSV clause reads from CSV files, while MERGE ensures that only one node is created for each unique value.
-
-    The MATCH clause is used to find the nodes that the edge should connect, and the final MERGE clause creates the relationship.
-
-    Finally, keep in mind that these operations may take a while if you are working with large datasets.
-
-    This function assumes that your CSV files have the headers 'node', 'type', 'source', 'target', and 'weight'. Make sure to adjust the code if your CSV files use different header names.
+def load_MSI_csv_into_neo4j(nodes_csv_path, edges_csv_path, session, batch_size=500):
+    # Define the Cypher query for loading nodes
+    nodes_query = f"""
+    CALL {{
+        LOAD CSV WITH HEADERS FROM 'file://{nodes_csv_path}' AS row
+        MERGE (:Entity {{ node: row.node, type: row.type }})
+    }} IN TRANSACTIONS OF {batch_size} ROWS
     """
     
-    # Connect to the graph
-    graph = Graph(neo4j_uri, username=neo4j_user, password=neo4j_password)
-    
-    # Get column names from the nodes CSV
-    with open(nodes_csv_path, 'r') as f:
-        reader = csv.reader(f)
-        nodes_column_names = next(reader)
-    
-    # Get column names from the edges CSV
-    with open(edges_csv_path, 'r') as f:
-        reader = csv.reader(f)
-        edges_column_names = next(reader)
-    
-    # Load nodes from CSV
-    graph.run(f"""
-        USING PERIODIC COMMIT 500
-        LOAD CSV WITH HEADERS FROM 'file:///{nodes_csv_path}' AS row
-        MERGE (:Entity {{ {', '.join([f'{column}: row.{column}' for column in nodes_column_names])} }})
-    """)
-    
-    # Load edges from CSV
-    graph.run(f"""
-        USING PERIODIC COMMIT 500
-        LOAD CSV WITH HEADERS FROM 'file:///{edges_csv_path}' AS row
+    # Define the Cypher query for loading edges
+    edges_query = f"""
+    CALL {{
+        LOAD CSV WITH HEADERS FROM 'file://{edges_csv_path}' AS row
         MATCH (source:Entity {{ node: row.source }})
         MATCH (target:Entity {{ node: row.target }})
-        MERGE (source)-[:CONNECTED_TO {{ weight: toFloat(row.weight) }}]->(target)
-    """)
+        MERGE (source)-[:CONNECTED_TO]->(target)
+    }} IN TRANSACTIONS OF {batch_size} ROWS
+    """
+    
+    # Run the queries
+    session.run(nodes_query)
+    session.run(edges_query)
+
 
 
 def result_generator(result):
+    """"
+    This function is a generator that extracts nodes and relationships from a result returned by a Neo4j query.
+    """
     for record in result:
         # Get the nodes and relationship from the record
         node_n = record['n']
@@ -63,6 +46,9 @@ def result_generator(result):
         yield node_n['node'], node_m['node'], relationship
 
 def convert_neo4j_result_to_networkx_graph(result):
+    """
+    This function converts a result returned by a Neo4j query into a NetworkX graph.
+    """
     # Create a generator from the result
     generator = result_generator(result)
 
@@ -76,15 +62,16 @@ def convert_neo4j_result_to_networkx_graph(result):
     return graph
 
 
-def generate_MOA_nx_subgraph_adding_together_label(chosen_indication_label, chosen_drug_label, num_drug_nodes, num_indication_nodes):
-
-    # Connect to the Neo4j database
-    graph_db = Graph("<Your_Neo4j_Connection_URL>")
+def generate_MOA_nx_subgraph_adding_together_label(chosen_indication_label, chosen_drug_label, num_drug_nodes, num_indication_nodes, session):
+    """
+    This function generates a subgraph of Mechanism of Action (MOA) by adding together indications and drug labels. 
+    The function then retrieves top num_drug_nodes and num_indication_nodes based on their diffusion profiles.
+    """
 
     # This part will depend on how you compute the chosen_indication_diffusion_profile and chosen_drug_diffusion_profile
     # Here is an example to illustrate the concept, but you'll need to adjust this to your needs
-    chosen_indication_diffusion_profile = get_diffusion_profile_from_db(chosen_indication_label, 'IndicationProfile', graph_db)
-    chosen_drug_diffusion_profile = get_diffusion_profile_from_db(chosen_drug_label, 'DrugProfile', graph_db)
+    chosen_indication_diffusion_profile = get_diffusion_profile_from_db(chosen_indication_label, 'IndicationProfile', session)
+    chosen_drug_diffusion_profile = get_diffusion_profile_from_db(chosen_drug_label, 'DrugProfile', session)
 
     # Find top_k_nodes from diffusion profile
     top_k_nodes_drug_subgraph = get_top_k_nodes(chosen_drug_diffusion_profile, num_drug_nodes)
@@ -102,7 +89,7 @@ def generate_MOA_nx_subgraph_adding_together_label(chosen_indication_label, chos
     """
 
     # Execute the Cypher query
-    result = graph_db.run(query)
+    result = session.run(query)
 
     # Convert the result to a networkx graph
     MOA_subgraph = convert_neo4j_result_to_networkx_graph(result)
@@ -113,25 +100,30 @@ def generate_MOA_nx_subgraph_adding_together_label(chosen_indication_label, chos
     return MOA_subgraph, MOA_subgraph_node_colors, MOA_subgraph_node_shapes
 
 
-def load_drug_candidates_csv_into_db(filename):
-    graph_db = Graph("<Your_Neo4j_Connection_URL>")
+def load_drug_candidates_csv_into_db(filename, session):
+    """
+    This function loads drug candidates from a CSV file into a Neo4j database.
+    """
 
     query = f"""
     LOAD CSV WITH HEADERS FROM 'file:///{filename}' AS row
     CREATE (:Indication {{label: row.indication_label, drug1: row.drug1, drug2: row.drug2, drug3: row.drug3, drug4: row.drug4, drug5: row.drug5, drug6: row.drug6, drug7: row.drug7, drug8: row.drug8, drug9: row.drug9, drug10: row.drug10}})
     """
 
-    graph_db.run(query)
+    session.run(query)
 
 
-def get_drugs_for_disease_from_db(chosen_indication_label):
-    graph_db = Graph("<Your_Neo4j_Connection_URL>")
+def get_drugs_for_disease_from_db(chosen_indication_label, session):
+    """
+    This function retrieves drug candidates for a specific disease from the Neo4j database.
+    """
+
     query = f"""
     MATCH (n:Indication)
     WHERE n.label = '{chosen_indication_label}'
     RETURN n
     """
-    result = graph_db.run(query)
+    result = session.run(query)
     data = result.data()[0]  # get the first (and only) row of the result
     # Extract drug candidates from the node properties, skipping the 'label' property
     drug_candidates = [v for k, v in data.items() if k != 'label']
@@ -139,6 +131,9 @@ def get_drugs_for_disease_from_db(chosen_indication_label):
 
 
 def save_diffusion_profiles_to_csv(drug_diffusion_profiles, indication_diffusion_profiles, output_path):
+    """
+    This function saves drug and indication diffusion profiles to a CSV file.
+    """
     # Convert numpy arrays to dataframes
     drug_df = pd.DataFrame(drug_diffusion_profiles)
     indication_df = pd.DataFrame(indication_diffusion_profiles)
@@ -149,7 +144,10 @@ def save_diffusion_profiles_to_csv(drug_diffusion_profiles, indication_diffusion
 
 
 
-def load_csv_into_neo4j(graph, csv_path, label):
+def load_csv_into_neo4j(csv_path, label, session):
+    """
+    This function loads data from a CSV file into a Neo4j database.
+    """
     # Get column names from the CSV without loading the whole file into memory
     with gzip.open(csv_path, 'rt') as f:
         reader = csv.reader(f)
@@ -163,19 +161,23 @@ def load_csv_into_neo4j(graph, csv_path, label):
     """.replace('properties', ', '.join([f'{column}: row.{column}' for column in column_names]))
 
     # Execute the query
-    graph.run(query)
+    session.run(query)
 
 
-def load_diffusion_profiles_into_neo4j(neo4j_uri, neo4j_user, neo4j_password, drug_csv_path, indication_csv_path):
-    # Connect to the graph
-    graph = Graph(neo4j_uri, username=neo4j_user, password=neo4j_password)
+def load_diffusion_profiles_into_neo4j(drug_csv_path, indication_csv_path, session):
+    """
+    This function loads drug and indication diffusion profiles from CSV files into a Neo4j database.
+    """
 
     # Load drug and indication diffusion profiles into Neo4j
-    load_csv_into_neo4j(graph, drug_csv_path, 'DrugProfile')
-    load_csv_into_neo4j(graph, indication_csv_path, 'IndicationProfile')
+    load_csv_into_neo4j(drug_csv_path, 'DrugProfile', session)
+    load_csv_into_neo4j(indication_csv_path, 'IndicationProfile', session)
 
 
-def get_diffusion_profile_from_db(chosen_label, profile_type, graph_db):
+def get_diffusion_profile_from_db(chosen_label, profile_type, session):
+    """
+    This function retrieves a diffusion profile for a specific label from the Neo4j database.
+    """
     # Validate the profile type
     if profile_type not in ['IndicationProfile', 'DrugProfile']:
         raise ValueError("Invalid profile type. Expected 'IndicationProfile' or 'DrugProfile'")
@@ -188,7 +190,7 @@ def get_diffusion_profile_from_db(chosen_label, profile_type, graph_db):
     """
     
     # Execute the query
-    result = graph_db.run(query)
+    result = session.run(query)
     
     # Get the node corresponding to the label
     node = result.single()[0]
