@@ -14,18 +14,13 @@ from neo4j.exceptions import Neo4jError, ServiceUnavailable
 
 
 def main(uri, username, password):
-    # Connect to cloud instance of Neo4j Graph Database
+    # Connect to neo4j sandbox
     driver = GraphDatabase.driver(
         uri,
         auth=basic_auth(username, password))
     
-    #URI = uri
-    #AUTH = (username, password)
-
     try:
         # Verify connectivity
-        #with GraphDatabase.driver(URI, auth=AUTH) as driver: 
-        #  driver.verify_connectivity()
         driver.verify_connectivity()
         print("Successfully connected to the database.")
     except ServiceUnavailable as e:
@@ -37,7 +32,7 @@ def main(uri, username, password):
     # Start a new session
     session = driver.session()
 
-    # Define file paths
+    # Define raw csv file paths from github repo
     nodes_csv_path = '/Users/samuelandersson/Dev/github_projects/MSI_webapp_3/nodes.csv'
     edges_csv_path = '/Users/samuelandersson/Dev/github_projects/MSI_webapp_3/edges.csv'
     
@@ -53,16 +48,12 @@ def main(uri, username, password):
 if __name__ == "__main__":
     
     """
-    NEO4J_URI=neo4j+s://6e929b6c.databases.neo4j.io
-    NEO4J_USERNAME=neo4j
-    NEO4J_PASSWORD=Vjc3eE3jMjnHtUJvhRXSMErtaNQOAtApaWVE9IMbyfY
-    AURA_INSTANCEID=6e929b6c
-    AURA_INSTANCENAME=Instance01
+
     """
 
-    uri= 'neo4j+s://6e929b6c.databases.neo4j.io'
+    uri= 'bolt://3.239.218.187:7687'
     username= 'neo4j'
-    password= 'Vjc3eE3jMjnHtUJvhRXSMErtaNQOAtApaWVE9IMbyfY'
+    password= 'crust-tires-lace'
     main(uri, username, password)
 
 
