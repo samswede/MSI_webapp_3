@@ -33,8 +33,8 @@ def main(uri, username, password):
     session = driver.session()
 
     # Define raw csv file paths from github repo
-    nodes_csv_path = '/Users/samuelandersson/Dev/github_projects/MSI_webapp_3/nodes.csv'
-    edges_csv_path = '/Users/samuelandersson/Dev/github_projects/MSI_webapp_3/edges.csv'
+    nodes_csv_path = 'https://raw.githubusercontent.com/samswede/MSI_webapp_3/optimised-memory/nodes.csv'
+    edges_csv_path = 'https://raw.githubusercontent.com/samswede/MSI_webapp_3/optimised-memory/edges.csv'
     
     try:
         # Test load_csv_into_neo4j
@@ -51,9 +51,9 @@ if __name__ == "__main__":
 
     """
 
-    uri= 'bolt://3.239.218.187:7687'
+    uri= 'bolt://44.200.210.26:7687'
     username= 'neo4j'
-    password= 'crust-tires-lace'
+    password= 'light-pedals-inceptions'
     main(uri, username, password)
 
 

@@ -35,7 +35,7 @@ class GraphManager:
 
         """ Memory Efficient Loading
         """
-        self.load_MSI_graph()
+        #self.load_MSI_graph()
         self.load_dicts()
         self.load_mapping_all_labels_to_names()
         self.load_node_types()
@@ -247,8 +247,12 @@ class GraphManager:
         # Create a subgraph from the top k nodes
         subgraph = self.MSI.subgraph(top_k_node_labels)
         
-        # Remove isolated nodes... frozen graph cannot be modified!
-        #subgraph.remove_nodes_from(list(nx.isolates(subgraph)))
+        # Create a dictionary for node colors
+        node_colors, node_shapes = self.get_node_colors_and_shapes(self, subgraph)
+
+        return subgraph, node_colors, node_shapes
+    
+    def get_node_colors_and_shapes(self, subgraph):
 
         # Create a dictionary for node colors
         node_colors = {}
@@ -267,5 +271,5 @@ class GraphManager:
                 node_colors[node] = '#DD614A'  # red, #F44336, #DD614A color for indications
                 node_shapes[node] = 'triangleDown'  # triangle for indications
 
-        return subgraph, node_colors, node_shapes
-    
+
+        return node_colors, node_shapes

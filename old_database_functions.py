@@ -11,6 +11,32 @@ neo4j_password = '5gruene8und'
 graph_db = Graph(neo4j_uri, auth=(neo4j_user, neo4j_password))
  """
 
+def load_MSI_csv_into_neo4j(nodes_csv_path, edges_csv_path, session, batch_size=5000):
+    # Define the Cypher query for loading nodes
+    nodes_query = f"""
+    CALL {{
+        LOAD CSV WITH HEADERS FROM '{nodes_csv_path}' AS row
+        MERGE (:Entity {{ node: row.node, type: row.type }})
+    }} IN TRANSACTIONS OF {batch_size} ROWS
+    """
+    
+    # Define the Cypher query for loading edges
+    edges_query = f"""
+    CALL {{
+        LOAD CSV WITH HEADERS FROM '{edges_csv_path}' AS row
+        MATCH (source:Entity {{ node: row.source }})
+        MATCH (target:Entity {{ node: row.target }})
+        MERGE (source)-[:CONNECTED_TO]->(target)
+    }} IN TRANSACTIONS OF {batch_size} ROWS
+    """
+    
+    # Run the queries
+    session.run(nodes_query)
+    session.run(edges_query)
+
+
+
+
 def load_MSI_csv_into_neo4j(nodes_csv_path, edges_csv_path, session, batch_size=500):
     """
     This function takes in the paths to nodes and edges CSV files, 

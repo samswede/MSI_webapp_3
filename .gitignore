@@ -1,7 +1,6 @@
 #
 scrap.py
 MSI_graph.graphml
-drug_candidates.csv
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
