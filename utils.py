@@ -32,3 +32,18 @@ def combine_all_vectors_and_labels(path):
     combined_array = np.vstack(arrays_list)
     
     return combined_array, label_to_index
+
+def load_diffusion_profiles(data_path):
+    # Load diffusion profiles
+    with np.load(f'{data_path}compressed_diffusion_profiles.npz') as data:
+        drug_diffusion_profiles = data['arr1']
+        indication_diffusion_profiles = data['arr2']
+    return drug_diffusion_profiles, indication_diffusion_profiles
+
+def load_dictionaries(data_path):
+    map_drug_diffusion_labels_to_indices = load_data_dict(f'{data_path}map_drug_labels_to_indices')
+    map_drug_diffusion_indices_to_labels = {v: k for k, v in map_drug_diffusion_labels_to_indices.items()}
+    map_indication_diffusion_labels_to_indices = load_data_dict(f'{data_path}map_indication_labels_to_indices')
+    map_indication_diffusion_indices_to_labels = {v: k for k, v in map_indication_diffusion_labels_to_indices.items()}
+    
+    return map_drug_diffusion_labels_to_indices, map_drug_diffusion_indices_to_labels, map_indication_diffusion_labels_to_indices, map_indication_diffusion_indices_to_labels

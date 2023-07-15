@@ -49,23 +49,7 @@ data_path = './data/'
 graph_manager = GraphManager(data_path)
 
 
-def load_diffusion_profiles(data_path):
-    # Load diffusion profiles
-    with np.load(f'{data_path}compressed_diffusion_profiles.npz') as data:
-        drug_diffusion_profiles = data['arr1']
-        indication_diffusion_profiles = data['arr2']
-    return drug_diffusion_profiles, indication_diffusion_profiles
-
 drug_diffusion_profiles, indication_diffusion_profiles = load_diffusion_profiles(data_path)
-
-
-def load_dictionaries(data_path):
-    map_drug_diffusion_labels_to_indices = load_data_dict(f'{data_path}map_drug_labels_to_indices')
-    map_drug_diffusion_indices_to_labels = {v: k for k, v in map_drug_diffusion_labels_to_indices.items()}
-    map_indication_diffusion_labels_to_indices = load_data_dict(f'{data_path}map_indication_labels_to_indices')
-    map_indication_diffusion_indices_to_labels = {v: k for k, v in map_indication_diffusion_labels_to_indices.items()}
-    
-    return map_drug_diffusion_labels_to_indices, map_drug_diffusion_indices_to_labels, map_indication_diffusion_labels_to_indices, map_indication_diffusion_indices_to_labels
 
 map_drug_diffusion_labels_to_indices, map_drug_diffusion_indices_to_labels, map_indication_diffusion_labels_to_indices, map_indication_diffusion_indices_to_labels = load_dictionaries(data_path)
 
@@ -207,11 +191,11 @@ def convert_networkx_to_vis_graph_data(graph, node_colors, node_shapes):
              } 
              for node_label in graph.nodes]
     
-    #edges = [{"from": graph_manager.mapping_label_to_index[edge[0]], "to": graph_manager.mapping_label_to_index[edge[1]]} for edge in graph.edges]
-
     edges = [{"from": graph_manager.mapping_label_to_index[edge[0]], 
               "to": graph_manager.mapping_label_to_index[edge[1]],
-              "arrows": "to"} for edge in graph.edges]
+              "arrows": "to"
+              } 
+              for edge in graph.edges]
 
     # Return the graph data
     return {"nodes": nodes, "edges": edges}

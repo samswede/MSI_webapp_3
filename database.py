@@ -159,13 +159,13 @@ def generate_MOA_nx_subgraph_adding_together_label(chosen_indication_label, chos
 
 
 
-def load_drug_candidates_csv_into_db(filename, session):
+def load_drug_candidates_csv_into_db(drug_candidates_file_path, session):
     """
     This function loads drug candidates from a CSV file into a Neo4j database.
     """
 
     query = f"""
-    LOAD CSV WITH HEADERS FROM 'file:///{filename}' AS row
+    LOAD CSV WITH HEADERS FROM '{drug_candidates_file_path}' AS row
     CREATE (:Indication {{label: row.indication_label, drug1: row.drug1, drug2: row.drug2, drug3: row.drug3, drug4: row.drug4, drug5: row.drug5, drug6: row.drug6, drug7: row.drug7, drug8: row.drug8, drug9: row.drug9, drug10: row.drug10}})
     """
 
@@ -214,7 +214,7 @@ def load_csv_into_neo4j(csv_path, label, session):
 
     # Define the Cypher query for loading CSV data
     query = f"""
-        LOAD CSV WITH HEADERS FROM 'file:///{csv_path}' AS row
+        LOAD CSV WITH HEADERS FROM '{csv_path}' AS row
         FIELDTERMINATOR ','
         CREATE (:{label} {{properties}})
     """.replace('properties', ', '.join([f'{column}: row.{column}' for column in column_names]))
