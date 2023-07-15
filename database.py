@@ -6,6 +6,27 @@ import gzip
 import numpy as np
 import gc
 import requests
+from neo4j import GraphDatabase, basic_auth
+from neo4j.exceptions import Neo4jError, ServiceUnavailable
+
+
+def connect_to_neo4j_sandbox(uri, username, password):
+    # Connect to neo4j sandbox
+    driver = GraphDatabase.driver(
+        uri,
+        auth=basic_auth(username, password))
+    
+    try:
+        # Verify connectivity
+        driver.verify_connectivity()
+        print("Successfully connected to the database.")
+    except ServiceUnavailable as e:
+      print(f"Failed to connect to the database due to a network issue: {e}")
+    except Neo4jError as e:
+        print(f"Failed to connect to the database: {e}")
+        return
+    
+    return driver
 
 def load_MSI_csv_into_neo4j(nodes_csv_path, edges_csv_path, session, batch_size=50000):
     """
@@ -90,23 +111,23 @@ def load_MSI_csv_into_neo4j(nodes_csv_path, edges_csv_path, session, batch_size=
 
 
 
-def result_generator(result):
-    """"
-    This function is a generator that extracts nodes and relationships from a result returned by a Neo4j query.
-    """
-    for record in result:
-        # Get the nodes and relationship from the record
-        node_n = record['n']
-        node_m = record['m']
-        relationship = record['r']
+def convert_if_digit_string(value):
+    return int(value) if str(value).isdigit() else value
 
-        # Yield the nodes and the edge
-        yield node_n['node'], node_m['node'], relationship
+def result_generator(result):
+    for record in result:
+        # Get the nodes from the record and convert them if they are digit strings
+        node_n = convert_if_digit_string(record['n']['node']) if record['n'] is not None else None
+        node_m = convert_if_digit_string(record['m']['node']) if record['m'] is not None else None
+
+        # Get the relationship from the record, if it exists
+        relationship = record['r'] if 'r' in record.keys() and record['r'] is not None else None
+
+        # If there's a relationship, yield the nodes and the relationship
+        if relationship is not None and node_n is not None and node_m is not None:
+            yield node_n, node_m, relationship
 
 def convert_neo4j_result_to_networkx_graph(result):
-    """
-    This function converts a result returned by a Neo4j query into a NetworkX graph.
-    """
     # Create a generator from the result
     generator = result_generator(result)
 
@@ -115,9 +136,12 @@ def convert_neo4j_result_to_networkx_graph(result):
     for n, m, r in generator:
         graph.add_node(n)
         graph.add_node(m)
-        graph.add_edge(n, m, **r)
+        if r is not None:  # Add the edge only if there's a relationship
+            graph.add_edge(n, m, **r)
 
     return graph
+
+
 
 
 def generate_MOA_nx_subgraph_adding_together_label(chosen_indication_label, chosen_drug_label, num_drug_nodes, num_indication_nodes, session):
@@ -189,48 +213,40 @@ def get_drugs_for_disease_from_db(chosen_indication_label, session):
     return drug_candidates
 
 
-def save_diffusion_profiles_to_csv(drug_diffusion_profiles, indication_diffusion_profiles, output_path):
-    """
-    This function saves drug and indication diffusion profiles to a CSV file.
-    """
-    # Convert numpy arrays to dataframes
-    drug_df = pd.DataFrame(drug_diffusion_profiles)
-    indication_df = pd.DataFrame(indication_diffusion_profiles)
-
-    # Save dataframes as gzipped csv
-    drug_df.to_csv(f'{output_path}drug_diffusion_profiles.csv.gz', index=False, compression='gzip')
-    indication_df.to_csv(f'{output_path}indication_diffusion_profiles.csv.gz', index=False, compression='gzip')
 
 
-
-def load_csv_into_neo4j(csv_path, label, session):
+def load_csv_into_neo4j(csv_path, profile_type, session):
     """
     This function loads data from a CSV file into a Neo4j database.
     """
-    # Get column names from the CSV without loading the whole file into memory
-    with gzip.open(csv_path, 'rt') as f:
-        reader = csv.reader(f)
-        column_names = next(reader)
-
+    print(f"Starting to load {csv_path} into Neo4j as {profile_type}...")
+    
     # Define the Cypher query for loading CSV data
+    # It includes all columns except 'index' and 'label' as properties
     query = f"""
         LOAD CSV WITH HEADERS FROM '{csv_path}' AS row
-        FIELDTERMINATOR ','
-        CREATE (:{label} {{properties}})
-    """.replace('properties', ', '.join([f'{column}: row.{column}' for column in column_names]))
+        CREATE (n:{profile_type})
+        SET n += apoc.map.removeKeys(row, ['index', 'label'])
+    """
 
     # Execute the query
     session.run(query)
+    
+    print(f"Finished loading {csv_path} into Neo4j.")
 
-
-def load_diffusion_profiles_into_neo4j(drug_csv_path, indication_csv_path, session):
+def load_diffusion_profiles_into_neo4j(drug_csv_paths, indication_csv_paths, session):
     """
     This function loads drug and indication diffusion profiles from CSV files into a Neo4j database.
     """
-
+    print("Starting to load diffusion profiles into Neo4j...")
+    
     # Load drug and indication diffusion profiles into Neo4j
-    load_csv_into_neo4j(drug_csv_path, 'DrugProfile', session)
-    load_csv_into_neo4j(indication_csv_path, 'IndicationProfile', session)
+    for drug_csv_path in drug_csv_paths:
+        load_csv_into_neo4j(drug_csv_path, 'DrugProfile', session)
+    for indication_csv_path in indication_csv_paths:
+        load_csv_into_neo4j(indication_csv_path, 'IndicationProfile', session)
+    
+    print("Finished loading diffusion profiles into Neo4j.")
 
 
 def get_diffusion_profile_from_db(chosen_label, profile_type, session):
@@ -250,27 +266,24 @@ def get_diffusion_profile_from_db(chosen_label, profile_type, session):
     
     # Execute the query
     result = session.run(query)
+
+    # Check if a matching node was found
+    if result.peek() is None:
+        print(f"No {profile_type} found with label '{chosen_label}'")
+        return None
     
     # Get the node corresponding to the label
     node = result.single()[0]
 
-    
     # Extract the diffusion profile from the node properties
     # This assumes that each property is a component of the diffusion profile
     # If the properties are stored in a different format, you'll need to adjust this code
-    diffusion_profile = [value for key, value in node.items() if key != 'label']
-
-    # Delete the result to free up memory
-    del result
-    # Delete the node to free up memory
-    del node
-    gc.collect()  # Explicitly trigger garbage collection
+    diffusion_profile = [float(value) for key, value in node.items() if key != 'label']
 
     # Convert the diffusion profile to a numpy array
     diffusion_profile = np.array(diffusion_profile)
 
     return diffusion_profile
-
 
 
 def get_top_k_nodes(self, diffusion_profile, k):

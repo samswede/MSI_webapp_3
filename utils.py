@@ -2,6 +2,13 @@ import pickle
 import os
 import numpy as np
 
+
+def convert_numbers_to_strings(input_list):
+    return [str(item) for item in input_list]
+
+def convert_strings_to_numbers(input_list):
+    return [int(item) if item.isdigit() else item for item in input_list]
+
 def load_data_dict(file_name):
     with open(f'{file_name}.pickle', 'rb') as handle:
         loaded_dict = pickle.load(handle)

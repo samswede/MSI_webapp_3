@@ -96,7 +96,7 @@ class GraphManager:
         subgraph = self.MSI.subgraph(top_k_node_labels)
         
         # Create a dictionary for node colors
-        node_colors, node_shapes = self.get_node_colors_and_shapes(self, subgraph)
+        node_colors, node_shapes = self.get_node_colors_and_shapes(subgraph)
 
         return subgraph, node_colors, node_shapes
     
