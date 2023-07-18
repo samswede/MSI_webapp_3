@@ -8,13 +8,7 @@ from memory_profiler import profile
 import pickle
 import gzip
 
-from py2neo import Graph
 
-import csv
-import gc
-import requests
-from neo4j import GraphDatabase, basic_auth
-from neo4j.exceptions import Neo4jError, ServiceUnavailable
 
 
 class GraphManager:
@@ -22,13 +16,12 @@ class GraphManager:
     def __init__(self, data_path):
 
         #self.load_MSI_graph()
-        self.load_dicts()
-        self.load_mapping_all_labels_to_names()
-        self.load_node_types()
+        self.load_dicts(data_path)
+        self.load_mapping_all_labels_to_names(data_path)
+        self.load_node_types(data_path)
 
         # Load drug candidates
-        drug_candidates_file_path = './drug_candidates.csv'
-        self.load_drug_candidates(drug_candidates_file_path)
+        self.load_drug_candidates(data_path)
 
         #data_path = './data/'
         drug_filename = 'all_top_100_drug_nodes.pkl'
@@ -42,23 +35,23 @@ class GraphManager:
         pass
     
     #@profile
-    def load_mapping_all_labels_to_names(self):
-        with gzip.open('mapping_all_labels_to_names.pkl.gz', 'rb') as f:
+    def load_mapping_all_labels_to_names(self, data_path):
+        with gzip.open(f'{data_path}mapping_all_labels_to_names.pkl.gz', 'rb') as f:
             self.mapping_all_labels_to_names = pickle.load(f)
     
     #@profile
-    def load_node_types(self):
-        with gzip.open('node_types.pkl.gz', 'rb') as f:
+    def load_node_types(self, data_path):
+        with gzip.open(f'{data_path}node_types.pkl.gz', 'rb') as f:
             self.node_types = pickle.load(f)
 
     #@profile
-    def load_dicts(self):
+    def load_dicts(self, data_path):
         dict_names = ["mapping_label_to_index", "mapping_index_to_label", "mapping_drug_label_to_name", 
                       "mapping_indication_label_to_name", "mapping_drug_name_to_label", "mapping_indication_name_to_label",
                       "drug_names_sorted", "indication_names_sorted"]
 
         for name in dict_names:
-            with gzip.open(f'{name}.pkl.gz', 'rb') as f:
+            with gzip.open(f'{data_path}{name}.pkl.gz', 'rb') as f:
                 setattr(self, name, pickle.load(f))
 
     def load_list_of_lists(self, filepath, filename):
@@ -69,8 +62,8 @@ class GraphManager:
     # Drug Candidates
     #&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&& 
 
-    def load_drug_candidates(self, drug_candidates_file_path):
-        self.all_drug_candidates = pd.read_csv(drug_candidates_file_path)
+    def load_drug_candidates(self, data_path):
+        self.all_drug_candidates = pd.read_csv(f'{data_path}drug_candidates.csv')
 
     def get_drugs_for_disease_precomputed(self, chosen_indication_label):
         # Filter the DataFrame for the rows where the first column (indication label) matches the chosen indication label
@@ -163,40 +156,6 @@ class GraphManager:
 
 
         return node_colors, node_shapes
-    
-    # def generate_subgraph_with_database_v2(self, chosen_indication_label, chosen_drug_label, num_drug_nodes, num_indication_nodes, map_drug_diffusion_labels_to_indices, map_indication_diffusion_labels_to_indices, session):
-    #     """
-    #     This function generates a subgraph of Mechanism of Action (MOA) by adding together indications and drug labels. 
-    #     The function then retrieves top num_drug_nodes and num_indication_nodes based on their diffusion profiles.
-    #     """
-
-    #     drug_index = map_drug_diffusion_labels_to_indices[chosen_drug_label]
-    #     indication_index = map_indication_diffusion_labels_to_indices[chosen_indication_label]
-
-    #     top_k_nodes_drug_subgraph = self.get_top_k_drug_node_labels(drug_index, num_drug_nodes)
-    #     top_k_nodes_indication_subgraph = self.get_top_k_indication_node_labels(indication_index, num_indication_nodes)
-
-    #     top_k_nodes_MOA_subgraph = top_k_nodes_drug_subgraph + top_k_nodes_indication_subgraph
-
-    #     # Define a Cypher query to get the subgraph data
-    #     # The exact query would depend on your database schema and the specific data you want to retrieve
-    #     # Make sure to adjust the query to match your use case
-    #     cypher_query = f"""
-    #     MATCH (n)-[r]->(m)
-    #     WHERE n.node IN {top_k_nodes_MOA_subgraph} AND m.node IN {top_k_nodes_MOA_subgraph}
-    #     RETURN n, r, m
-    #     """
-
-    #     # Execute the Cypher query
-    #     result = session.run(cypher_query)
-
-    #     # Convert the result to a networkx graph
-    #     MOA_subgraph = self.convert_neo4j_result_to_networkx_graph(result)
-
-    #     # Get node colors and shapes
-    #     MOA_subgraph_node_colors, MOA_subgraph_node_shapes = self.get_node_colors_and_shapes(MOA_subgraph)
-
-    #     return MOA_subgraph, MOA_subgraph_node_colors, MOA_subgraph_node_shapes
     
     def generate_subgraph_with_database(self, chosen_indication_label, chosen_drug_label, num_drug_nodes, num_indication_nodes, map_drug_diffusion_labels_to_indices, map_indication_diffusion_labels_to_indices, session):
 
