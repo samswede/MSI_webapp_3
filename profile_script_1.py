@@ -3,8 +3,8 @@
 from memory_profiler import profile
 from manager import GraphManager
 
-from main import load_diffusion_profiles, load_dictionaries, create_drug_vector_database
-from main import generate_MOA_nx_subgraph_adding_together_label
+from OLD_main import load_diffusion_profiles, load_dictionaries, create_drug_vector_database
+from OLD_main import generate_MOA_nx_subgraph_adding_together_label
 
 @profile
 def test_initialise_graph_manager(data_path):

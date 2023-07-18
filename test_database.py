@@ -3,150 +3,147 @@
 import numpy as np
 from database import (
     connect_to_neo4j_sandbox,
-    load_MSI_csv_into_neo4j,
-    load_csv_into_neo4j,
-    save_diffusion_profiles_to_csv,
-    load_diffusion_profiles_into_neo4j,
-    get_diffusion_profile_from_db, 
-    convert_if_digit_string,
-    result_generator,
-    convert_neo4j_result_to_networkx_graph
+    #save_diffusion_profiles_to_csv,
+    #load_diffusion_profiles_into_neo4j,
+    #get_diffusion_profile_from_db, 
+    #convert_if_digit_string,
+    #result_generator,
+    #convert_neo4j_result_to_networkx_graph
 )
 from neo4j import GraphDatabase, basic_auth
 from neo4j.exceptions import Neo4jError, ServiceUnavailable
 
 from optimised_manager import GraphManager
-from vector_database import *
+#from vector_database import *
 from utils import *
 
 #%%
-# Test load_diffusion_profiles_into_neo4j
-drug_profiles_csv_path = 'https://raw.githubusercontent.com/samswede/MSI_webapp_3/optimised-memory/nodes.csv'
-indication_profiles_csv_path = 'https://raw.githubusercontent.com/samswede/MSI_webapp_3/optimised-memory/nodes.csv'
-load_diffusion_profiles_into_neo4j(drug_profiles_csv_path, indication_profiles_csv_path, session)
+# # Test load_diffusion_profiles_into_neo4j
+# drug_profiles_csv_path = 'https://raw.githubusercontent.com/samswede/MSI_webapp_3/optimised-memory/nodes.csv'
+# indication_profiles_csv_path = 'https://raw.githubusercontent.com/samswede/MSI_webapp_3/optimised-memory/nodes.csv'
+# load_diffusion_profiles_into_neo4j(drug_profiles_csv_path, indication_profiles_csv_path, session)
 
 
-# Test get_diffusion_profile_from_db
-chosen_label = 'chosen_label'
-profile_type = 'DrugProfile'  # or 'IndicationProfile'
-diffusion_profile = get_diffusion_profile_from_db(chosen_label, profile_type, session)
-print(diffusion_profile)
+# # Test get_diffusion_profile_from_db
+# chosen_label = 'chosen_label'
+# profile_type = 'DrugProfile'  # or 'IndicationProfile'
+# diffusion_profile = get_diffusion_profile_from_db(chosen_label, profile_type, session)
+# print(diffusion_profile)
 
 #%%
 
 
-
-graph_manager = GraphManager
-
 # Instantiate and initialize necessary components for the application
 data_path = './data/'
-graph_manager = GraphManager()
+graph_manager = GraphManager(data_path)
 
 
 drug_diffusion_profiles, indication_diffusion_profiles = load_diffusion_profiles(data_path)
 
 map_drug_diffusion_labels_to_indices, map_drug_diffusion_indices_to_labels, map_indication_diffusion_labels_to_indices, map_indication_diffusion_indices_to_labels = load_dictionaries(data_path)
 
+#%%
 
-def create_drug_vector_database(drug_diffusion_profiles, map_drug_diffusion_labels_to_indices):
-    drug_vector_db = MultiMetricDatabase(dimensions=drug_diffusion_profiles.shape[1], metrics=['manhattan'], n_trees=30)
-    drug_vector_db.add_vectors(drug_diffusion_profiles, map_drug_diffusion_labels_to_indices)
-    return drug_vector_db
+# def create_drug_vector_database(drug_diffusion_profiles, map_drug_diffusion_labels_to_indices):
+#     drug_vector_db = MultiMetricDatabase(dimensions=drug_diffusion_profiles.shape[1], metrics=['manhattan'], n_trees=30)
+#     drug_vector_db.add_vectors(drug_diffusion_profiles, map_drug_diffusion_labels_to_indices)
+#     return drug_vector_db
 
-drug_vector_db = create_drug_vector_database(drug_diffusion_profiles, map_drug_diffusion_labels_to_indices)
+# drug_vector_db = create_drug_vector_database(drug_diffusion_profiles, map_drug_diffusion_labels_to_indices)
 
 
 # Test retrieving subgraph from neo4j sandbox
 
 #%%
 
-def generate_subgraph_without_database(chosen_indication_label, chosen_drug_label, num_drug_nodes, num_indication_nodes):
+# def generate_subgraph_without_database(chosen_indication_label, chosen_drug_label, num_drug_nodes, num_indication_nodes):
 
-    chosen_indication_index = map_indication_diffusion_labels_to_indices[chosen_indication_label]
-    chosen_indication_diffusion_profile = indication_diffusion_profiles[chosen_indication_index]
+#     chosen_indication_index = map_indication_diffusion_labels_to_indices[chosen_indication_label]
+#     chosen_indication_diffusion_profile = indication_diffusion_profiles[chosen_indication_index]
 
-    chosen_drug_index = map_drug_diffusion_labels_to_indices[chosen_drug_label]
-    chosen_drug_diffusion_profile = drug_diffusion_profiles[chosen_drug_index]
+#     chosen_drug_index = map_drug_diffusion_labels_to_indices[chosen_drug_label]
+#     chosen_drug_diffusion_profile = drug_diffusion_profiles[chosen_drug_index]
 
-    # Find top_k_nodes from diffusion profile
-    top_k_nodes_drug_subgraph = graph_manager.get_top_k_nodes(chosen_drug_diffusion_profile, num_drug_nodes)
-    top_k_nodes_indication_subgraph = graph_manager.get_top_k_nodes(chosen_indication_diffusion_profile, num_indication_nodes)
-
-
-    # Find top_k_nodes from diffusion profile
-    top_k_nodes_MOA_subgraph = top_k_nodes_drug_subgraph + top_k_nodes_indication_subgraph
-
-    # Make subgraph
-    MOA_subgraph, MOA_subgraph_node_colors, MOA_subgraph_node_shapes = graph_manager.create_subgraph(top_k_nodes_MOA_subgraph)
-
-    return MOA_subgraph, MOA_subgraph_node_colors, MOA_subgraph_node_shapes
-
-def generate_subgraph_with_database(chosen_indication_label, chosen_drug_label, num_drug_nodes, num_indication_nodes, session):
-
-    chosen_indication_index = map_indication_diffusion_labels_to_indices[chosen_indication_label]
-    chosen_indication_diffusion_profile = indication_diffusion_profiles[chosen_indication_index]
-
-    chosen_drug_index = map_drug_diffusion_labels_to_indices[chosen_drug_label]
-    chosen_drug_diffusion_profile = drug_diffusion_profiles[chosen_drug_index]
-
-    # Find top_k_nodes from diffusion profile
-    top_k_nodes_drug_subgraph = graph_manager.get_top_k_nodes(chosen_drug_diffusion_profile, num_drug_nodes)
-    top_k_nodes_indication_subgraph = graph_manager.get_top_k_nodes(chosen_indication_diffusion_profile, num_indication_nodes)
+#     # Find top_k_nodes from diffusion profile
+#     top_k_nodes_drug_subgraph = graph_manager.get_top_k_nodes(chosen_drug_diffusion_profile, num_drug_nodes)
+#     top_k_nodes_indication_subgraph = graph_manager.get_top_k_nodes(chosen_indication_diffusion_profile, num_indication_nodes)
 
 
-    # Find top_k_nodes from diffusion profile
-    top_k_nodes_MOA_subgraph = top_k_nodes_drug_subgraph + top_k_nodes_indication_subgraph
+#     # Find top_k_nodes from diffusion profile
+#     top_k_nodes_MOA_subgraph = top_k_nodes_drug_subgraph + top_k_nodes_indication_subgraph
 
-    # Define a Cypher query to get the subgraph data
-    top_k_nodes_MOA_subgraph = convert_numbers_to_strings(top_k_nodes_MOA_subgraph)
-    print(f'top_k_nodes_MOA_subgraph: {top_k_nodes_MOA_subgraph}')
+#     # Make subgraph
+#     MOA_subgraph, MOA_subgraph_node_colors, MOA_subgraph_node_shapes = graph_manager.create_subgraph(top_k_nodes_MOA_subgraph)
 
-    cypher_query = f"""
-    MATCH (n)
-    WHERE n.node IN {top_k_nodes_MOA_subgraph}
-    OPTIONAL MATCH (n)-[r]->(m)
-    WHERE m.node IN {top_k_nodes_MOA_subgraph}
-    RETURN n, r, m
-    """
+#     return MOA_subgraph, MOA_subgraph_node_colors, MOA_subgraph_node_shapes
 
-    print(f'cypher_query: {cypher_query}')
+# def generate_subgraph_with_database(chosen_indication_label, chosen_drug_label, num_drug_nodes, num_indication_nodes, session):
 
-    # Execute the Cypher query
-    result = session.run(cypher_query)
+#     chosen_indication_index = map_indication_diffusion_labels_to_indices[chosen_indication_label]
+#     chosen_indication_diffusion_profile = indication_diffusion_profiles[chosen_indication_index]
 
-    print(f'result: {result}')
-    # Convert the result to a networkx graph
-    MOA_subgraph = convert_neo4j_result_to_networkx_graph(result)
+#     chosen_drug_index = map_drug_diffusion_labels_to_indices[chosen_drug_label]
+#     chosen_drug_diffusion_profile = drug_diffusion_profiles[chosen_drug_index]
 
-    print(f'MOA_subgraph: {MOA_subgraph}')
-    print(f'MOA_subgraph.nodes(): {MOA_subgraph.nodes()}')
+#     # Find top_k_nodes from diffusion profile
+#     top_k_nodes_drug_subgraph = graph_manager.get_top_k_nodes(chosen_drug_diffusion_profile, num_drug_nodes)
+#     top_k_nodes_indication_subgraph = graph_manager.get_top_k_nodes(chosen_indication_diffusion_profile, num_indication_nodes)
 
-    # Get node colors and shapes
-    MOA_subgraph_node_colors, MOA_subgraph_node_shapes = graph_manager.get_node_colors_and_shapes(MOA_subgraph)
 
-    return MOA_subgraph, MOA_subgraph_node_colors, MOA_subgraph_node_shapes
+#     # Find top_k_nodes from diffusion profile
+#     top_k_nodes_MOA_subgraph = top_k_nodes_drug_subgraph + top_k_nodes_indication_subgraph
 
-def test_new_function():
+#     # Define a Cypher query to get the subgraph data
+#     top_k_nodes_MOA_subgraph = convert_numbers_to_strings(top_k_nodes_MOA_subgraph)
+#     print(f'top_k_nodes_MOA_subgraph: {top_k_nodes_MOA_subgraph}')
+
+#     cypher_query = f"""
+#     MATCH (n)
+#     WHERE n.node IN {top_k_nodes_MOA_subgraph}
+#     OPTIONAL MATCH (n)-[r]->(m)
+#     WHERE m.node IN {top_k_nodes_MOA_subgraph}
+#     RETURN n, r, m
+#     """
+
+#     print(f'cypher_query: {cypher_query}')
+
+#     # Execute the Cypher query
+#     result = session.run(cypher_query)
+
+#     print(f'result: {result}')
+#     # Convert the result to a networkx graph
+#     MOA_subgraph = convert_neo4j_result_to_networkx_graph(result)
+
+#     print(f'MOA_subgraph: {MOA_subgraph}')
+#     print(f'MOA_subgraph.nodes(): {MOA_subgraph.nodes()}')
+
+#     # Get node colors and shapes
+#     MOA_subgraph_node_colors, MOA_subgraph_node_shapes = graph_manager.get_node_colors_and_shapes(MOA_subgraph)
+
+#     return MOA_subgraph, MOA_subgraph_node_colors, MOA_subgraph_node_shapes
+
+#%%
+
+def test_new_function(graph_manager, map_drug_diffusion_labels_to_indices, map_indication_diffusion_labels_to_indices):
 
     chosen_indication_label = 'C0003811'
     chosen_drug_label = 'DB12010'
-    num_drug_nodes = 3
-    num_indication_nodes = 3
+    num_drug_nodes = 10
+    num_indication_nodes = 10
 
-    uri= 'bolt://44.200.210.26:7687'
+    uri= 'bolt://3.83.107.114:7687'
     username= 'neo4j'
-    password= 'light-pedals-inceptions'
+    password= 'children-insulation-transmitters'
 
     # Connect to neo4j sandbox
     driver = connect_to_neo4j_sandbox(uri, username, password)
 
     try:
-        old_subgraph, old_node_colors, old_node_shapes = generate_subgraph_without_database(chosen_indication_label, chosen_drug_label, num_drug_nodes, num_indication_nodes)
-        #new_subgraph, new_node_colors, new_node_shapes = generate_subgraph_without_database(chosen_indication_label, chosen_drug_label, num_drug_nodes, num_indication_nodes)
+        #old_subgraph, old_node_colors, old_node_shapes = generate_subgraph_without_database(chosen_indication_label, chosen_drug_label, num_drug_nodes, num_indication_nodes)
 
         # Start a new session
         session = driver.session()
-        new_subgraph, new_node_colors, new_node_shapes = generate_subgraph_with_database(chosen_indication_label, chosen_drug_label, num_drug_nodes, num_indication_nodes, session)
+        new_subgraph, new_node_colors, new_node_shapes = graph_manager.generate_subgraph_with_database(chosen_indication_label, chosen_drug_label, num_drug_nodes, num_indication_nodes, map_drug_diffusion_labels_to_indices, map_indication_diffusion_labels_to_indices, session)
         session.close()
 
     except Exception as e:
@@ -154,12 +151,14 @@ def test_new_function():
         # You could add more debugging information here, if needed
 
 
-    assert old_subgraph.nodes() == new_subgraph.nodes(), f"old_subgraph.nodes(): {old_subgraph.nodes()}, new_subgraph.nodes(): {new_subgraph.nodes()}"
-    assert old_node_shapes == new_node_shapes, f"old_node_shapes: {old_node_shapes}, new_node_shapes: {new_node_shapes}"
-    assert old_node_colors == new_node_colors, f"old_node_colors: {old_node_colors}, new_node_colors: {new_node_colors}"
+    #assert old_subgraph.nodes() == new_subgraph.nodes(), f"old_subgraph.nodes(): {old_subgraph.nodes()}, new_subgraph.nodes(): {new_subgraph.nodes()}"
+    #assert old_node_shapes == new_node_shapes, f"old_node_shapes: {old_node_shapes}, new_node_shapes: {new_node_shapes}"
+    #assert old_node_colors == new_node_colors, f"old_node_colors: {old_node_colors}, new_node_colors: {new_node_colors}"
     
 
-test_new_function()
+test_new_function(graph_manager, map_drug_diffusion_labels_to_indices, map_indication_diffusion_labels_to_indices)
+
+
 # %%
 
 def save_diffusion_profiles_to_csv(drug_diffusion_profiles, indication_diffusion_profiles, map_drug_diffusion_labels_to_indices, map_indication_diffusion_labels_to_indices, output_path):

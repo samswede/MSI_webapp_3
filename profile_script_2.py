@@ -5,7 +5,7 @@
 from memory_profiler import profile
 from optimised_manager import GraphManager
 
-from main import load_diffusion_profiles, load_dictionaries, create_drug_vector_database
+from OLD_main import load_diffusion_profiles, load_dictionaries, create_drug_vector_database
 
 @profile
 def test_initialise_graph_manager(data_path):

@@ -45,7 +45,7 @@ if __name__ == "__main__":
 
     """
 
-    uri= 'bolt://44.200.210.26:7687'
+    uri= 'bolt://3.83.107.114:7687'
     username= 'neo4j'
-    password= 'light-pedals-inceptions'
+    password= 'children-insulation-transmitters'
     add_MSI_to_neo4j_sandbox(uri, username, password)

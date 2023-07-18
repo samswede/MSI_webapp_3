@@ -8,9 +8,9 @@ from pydantic import BaseModel
 from typing import List, Dict
 
 # Import personalised modules
-from vector_database import *
+from database import *
 from utils import *
-from manager import *
+from optimised_manager import *
 
 # Memory optimisation
 from memory_profiler import profile
@@ -18,6 +18,15 @@ from memory_profiler import profile
 #===================================================================
 #&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 #===================================================================
+
+
+# Create Driver and Connect to database
+uri= 'bolt://3.83.107.114:7687'
+username= 'neo4j'
+password= 'children-insulation-transmitters'
+
+# Connect to neo4j sandbox
+driver = connect_to_neo4j_sandbox(uri, username, password)
 
 # Initialize the FastAPI application
 app = FastAPI()
@@ -27,10 +36,12 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # CORS middleware setup to allow requests from the specified origins
 origins = [
-    "http://localhost",
-    "http://127.0.0.1:8000",
-    "https://primal-hybrid-391911.ew.r.appspot.com", #New for google cloud
-    "http://localhost:8080",  # Allow your local frontend to access the server
+    'http://localhost',
+    'http://127.0.0.1:8000',
+    'https://primal-hybrid-391911.ew.r.appspot.com', #New for google cloud
+    'http://localhost:8080',  # Allow your local frontend to access the server
+
+    uri, # add neo4j sandbox graph database uri
 ]
 
 app.add_middleware(
@@ -48,45 +59,13 @@ templates = Jinja2Templates(directory="templates")
 data_path = './data/'
 graph_manager = GraphManager(data_path)
 
-
-drug_diffusion_profiles, indication_diffusion_profiles = load_diffusion_profiles(data_path)
-
 map_drug_diffusion_labels_to_indices, map_drug_diffusion_indices_to_labels, map_indication_diffusion_labels_to_indices, map_indication_diffusion_indices_to_labels = load_dictionaries(data_path)
 
-
-def create_drug_vector_database(drug_diffusion_profiles, map_drug_diffusion_labels_to_indices):
-    drug_vector_db = MultiMetricDatabase(dimensions=drug_diffusion_profiles.shape[1], metrics=['manhattan'], n_trees=30)
-    drug_vector_db.add_vectors(drug_diffusion_profiles, map_drug_diffusion_labels_to_indices)
-    return drug_vector_db
-
-drug_vector_db = create_drug_vector_database(drug_diffusion_profiles, map_drug_diffusion_labels_to_indices)
 
 #====================================================================================================================
 # Define core recommendation function
 #====================================================================================================================
 
-def get_drugs_for_disease(chosen_indication_label, distance_metric='manhattan'):
-    
-    # Translate indication name to index in indication diffusion profiles, to retrieve diffusion profile
-    #chosen_indication_label = graph_manager.mapping_indication_name_to_label[chosen_indication_name]
-    chosen_indication_index = map_indication_diffusion_labels_to_indices[chosen_indication_label]
-    chosen_indication_diffusion_profile = indication_diffusion_profiles[chosen_indication_index]
-
-    #====================================
-    # Querying Vector Database to return drug candidates
-    #====================================
-    num_recommendations = 10
-
-    query = chosen_indication_diffusion_profile
-
-    drug_candidates_indices = drug_vector_db.nearest_neighbors(query, distance_metric, num_recommendations)
-
-    drug_candidates_labels = [map_drug_diffusion_indices_to_labels[index] for index in drug_candidates_indices]
-    #drug_candidates_names = [graph_manager.mapping_drug_label_to_name[i] for i in drug_candidates_labels]
-    drug_candidates_names = [graph_manager.mapping_all_labels_to_names[label] for label in drug_candidates_labels]
-
-
-    return drug_candidates_names # List
 
 
 #===================================================================
@@ -144,10 +123,12 @@ async def get_drugs_for_selected_disease(disease_drug_candidates_request: Diseas
 
     assert isinstance(disease_drug_candidates_request.disease_label, str)
 
-    drug_candidates = get_drugs_for_disease(disease_drug_candidates_request.disease_label)
+    #drug_candidates = get_drugs_for_disease(disease_drug_candidates_request.disease_label)
+
+    drug_candidates_names_list = graph_manager.get_drugs_for_disease_precomputed(chosen_indication_label= disease_drug_candidates_request.disease_label)
     list_of_drug_candidates = [
-        {"value": graph_manager.mapping_drug_name_to_label[name], "name": name}
-        for name in drug_candidates
+        {"value": name, "name": name}
+        for name in drug_candidates_names_list
     ]
     return list_of_drug_candidates
 
@@ -155,50 +136,6 @@ async def get_drugs_for_selected_disease(disease_drug_candidates_request: Diseas
 #============================================================================
 # Visualise MOA network using vis.js
 #============================================================================
-
-
-def generate_MOA_nx_subgraph_adding_together_label(chosen_indication_label, chosen_drug_label, num_drug_nodes, num_indication_nodes):
-
-    chosen_indication_index = map_indication_diffusion_labels_to_indices[chosen_indication_label]
-    chosen_indication_diffusion_profile = indication_diffusion_profiles[chosen_indication_index]
-
-    chosen_drug_index = map_drug_diffusion_labels_to_indices[chosen_drug_label]
-    chosen_drug_diffusion_profile = drug_diffusion_profiles[chosen_drug_index]
-
-    # Find top_k_nodes from diffusion profile
-    top_k_nodes_drug_subgraph = graph_manager.get_top_k_nodes(chosen_drug_diffusion_profile, num_drug_nodes)
-    top_k_nodes_indication_subgraph = graph_manager.get_top_k_nodes(chosen_indication_diffusion_profile, num_indication_nodes)
-
-    
-    #chosen_MOA_diffusion_profile = chosen_indication_diffusion_profile + chosen_drug_diffusion_profile
-
-    # Find top_k_nodes from diffusion profile
-    #top_k_nodes_MOA_subgraph = graph_manager.get_top_k_nodes(chosen_MOA_diffusion_profile, num_nodes_subgraph)
-    top_k_nodes_MOA_subgraph = top_k_nodes_drug_subgraph + top_k_nodes_indication_subgraph
-
-    # Make subgraph
-    MOA_subgraph, MOA_subgraph_node_colors, MOA_subgraph_node_shapes = graph_manager.create_subgraph(top_k_nodes_MOA_subgraph)
-
-    return MOA_subgraph, MOA_subgraph_node_colors, MOA_subgraph_node_shapes
-
-
-def convert_networkx_to_vis_graph_data(graph, node_colors, node_shapes):
-    # Create a list of nodes and edges
-    nodes = [{"id": graph_manager.mapping_label_to_index[node_label], 
-              "label": f'{graph_manager.mapping_all_labels_to_names[node_label]}',
-              "color": node_colors[node_label],
-              "shape": node_shapes[node_label]
-             } 
-             for node_label in graph.nodes]
-    
-    edges = [{"from": graph_manager.mapping_label_to_index[edge[0]], 
-              "to": graph_manager.mapping_label_to_index[edge[1]],
-              "arrows": "to"
-              } 
-              for edge in graph.edges]
-
-    # Return the graph data
-    return {"nodes": nodes, "edges": edges}
 
 @app.post("/graph", response_class=JSONResponse)
 async def get_graph_data(request: GraphRequest):
@@ -213,11 +150,29 @@ async def get_graph_data(request: GraphRequest):
     print(f'k1: {k1}')
     print(f'k2: {k2}')
 
-    # Generate MOA graph data
-    MOA_subgraph, MOA_subgraph_node_colors, MOA_subgraph_node_shapes = generate_MOA_nx_subgraph_adding_together_label(chosen_indication_label=disease_label, chosen_drug_label=drug_label, num_drug_nodes=k2, num_indication_nodes=k1)
+
+    try:
+
+        # Start a new session
+        session = driver.session()
+
+        # Retrieve MOA graph data from neo4j sandbox
+        MOA_subgraph, MOA_subgraph_node_colors, MOA_subgraph_node_shapes = graph_manager.generate_subgraph_with_database(chosen_indication_label= disease_label, 
+                                                                                                       chosen_drug_label= drug_label, 
+                                                                                                       num_drug_nodes= k2, 
+                                                                                                       num_indication_nodes= k1, 
+                                                                                                       map_drug_diffusion_labels_to_indices= map_drug_diffusion_labels_to_indices, 
+                                                                                                       map_indication_diffusion_labels_to_indices= map_indication_diffusion_labels_to_indices, 
+                                                                                                       session= session)
+        # Close database session to free up resources
+        session.close()
+
+    except Exception as e:
+        print(f"An error occurred: {e}") # should probably return this error and log it on console in main.js
+    
 
     # Convert graph data into a format that vis.js can handle
-    graph_data = convert_networkx_to_vis_graph_data(graph=MOA_subgraph, node_colors=MOA_subgraph_node_colors, node_shapes=MOA_subgraph_node_shapes)
+    graph_data = graph_manager.convert_networkx_to_vis_graph_data(graph=MOA_subgraph, node_colors=MOA_subgraph_node_colors, node_shapes=MOA_subgraph_node_shapes)
 
     # Create the response
     response = {

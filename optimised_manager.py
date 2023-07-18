@@ -8,15 +8,33 @@ from memory_profiler import profile
 import pickle
 import gzip
 
+from py2neo import Graph
+
+import csv
+import gc
+import requests
+from neo4j import GraphDatabase, basic_auth
+from neo4j.exceptions import Neo4jError, ServiceUnavailable
+
 
 class GraphManager:
     #@profile
-    def __init__(self):
+    def __init__(self, data_path):
 
-        self.load_MSI_graph()
+        #self.load_MSI_graph()
         self.load_dicts()
         self.load_mapping_all_labels_to_names()
         self.load_node_types()
+
+        # Load drug candidates
+        drug_candidates_file_path = './drug_candidates.csv'
+        self.load_drug_candidates(drug_candidates_file_path)
+
+        #data_path = './data/'
+        drug_filename = 'all_top_100_drug_nodes.pkl'
+        indication_filename = 'all_top_100_indication_nodes.pkl'
+        self.top_100_node_labels_for_each_indication = self.load_list_of_lists(data_path, indication_filename)
+        self.top_100_node_labels_for_each_drug = self.load_list_of_lists(data_path, drug_filename)
 
     #@profile
     def load_MSI_graph(self):
@@ -43,9 +61,33 @@ class GraphManager:
             with gzip.open(f'{name}.pkl.gz', 'rb') as f:
                 setattr(self, name, pickle.load(f))
 
-        #&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-        # Subgraph
-        #&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+    def load_list_of_lists(self, filepath, filename):
+        with open(filepath + filename, 'rb') as f:
+            return pickle.load(f)
+
+    #&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+    # Drug Candidates
+    #&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&& 
+
+    def load_drug_candidates(self, drug_candidates_file_path):
+        self.all_drug_candidates = pd.read_csv(drug_candidates_file_path)
+
+    def get_drugs_for_disease_precomputed(self, chosen_indication_label):
+        # Filter the DataFrame for the rows where the first column (indication label) matches the chosen indication label
+        matching_rows = self.all_drug_candidates[self.all_drug_candidates.iloc[:, 0] == chosen_indication_label]
+        
+        # If there are any matching rows, return the drug candidates
+        if len(matching_rows) > 0:
+            # The drug candidates are in the other columns of the DataFrame
+            # We convert the DataFrame slice to a list and exclude the first element (the indication label)
+            list_of_drug_candidate_names = matching_rows.iloc[0, 1:].tolist()
+            return list_of_drug_candidate_names
+        else:
+            return []
+        
+    #&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+    # Subgraph
+    #&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 
     #@profile
     def get_top_k_nodes(self, diffusion_profile, k):
@@ -59,46 +101,46 @@ class GraphManager:
         Output: 
         - list of str: The labels of the top k nodes.
         """
-        # Check if inputs are valid
-        #assert isinstance(diffusion_profile, np.ndarray), "diffusion_profile must be a numpy array"
-        #assert isinstance(k, int), "k must be an integer"
-        #assert k <= len(diffusion_profile), "k cannot be greater than the number of nodes in the graph"
-        
+
         # Get the indices of the top k nodes
         top_k_indices = np.argsort(diffusion_profile)[-k:]
         
-        #print(f'Top-K indices: {top_k_indices}')
-        #for index in top_k_indices:
-        #    print(f'Index: {index}, val: {diffusion_profile[index]}')
-
         # Convert indices to labels
         top_k_labels = [self.mapping_index_to_label[i] for i in top_k_indices]
         
         return top_k_labels
 
+    def get_top_k_drug_node_labels(self, drug_index, k_node_labels):
+        top_k_drug_node_labels= self.top_100_node_labels_for_each_drug[drug_index][-k_node_labels:] # (k_node_labels -1)
+        return top_k_drug_node_labels
+
+    def get_top_k_indication_node_labels(self, indication_index, k_node_labels):
+        top_k_indication_node_labels= self.top_100_node_labels_for_each_indication[indication_index][-k_node_labels:] # (k_node_labels -1)
+        return top_k_indication_node_labels
+
     #@profile
-    def create_subgraph(self, top_k_node_labels):
-        """
-        Create a subgraph from the top k nodes and draw it.
+    # def create_subgraph(self, top_k_node_labels):
+    #     """
+    #     Create a subgraph from the top k nodes and draw it.
         
-        Input: 
-        - top_k_node_labels (list of str): The labels of the nodes to include in the subgraph.
+    #     Input: 
+    #     - top_k_node_labels (list of str): The labels of the nodes to include in the subgraph.
 
-        Output:
-        - nx.Graph: The subgraph containing only the top k nodes.
-        - dict: A dictionary mapping node labels to colors.
-        """
-        # Check if input is valid
-        assert isinstance(top_k_node_labels, list), "top_k_node_labels must be a list"
-        #assert all(isinstance(node, (str, int)) for node in top_k_node_labels), "All elements in top_k_node_labels must be strings or integers"
+    #     Output:
+    #     - nx.Graph: The subgraph containing only the top k nodes.
+    #     - dict: A dictionary mapping node labels to colors.
+    #     """
+    #     # Check if input is valid
+    #     assert isinstance(top_k_node_labels, list), "top_k_node_labels must be a list"
+    #     #assert all(isinstance(node, (str, int)) for node in top_k_node_labels), "All elements in top_k_node_labels must be strings or integers"
     
-        # Create a subgraph from the top k nodes
-        subgraph = self.MSI.subgraph(top_k_node_labels)
+    #     # Create a subgraph from the top k nodes
+    #     subgraph = self.MSI.subgraph(top_k_node_labels)
         
-        # Create a dictionary for node colors
-        node_colors, node_shapes = self.get_node_colors_and_shapes(subgraph)
+    #     # Create a dictionary for node colors
+    #     node_colors, node_shapes = self.get_node_colors_and_shapes(subgraph)
 
-        return subgraph, node_colors, node_shapes
+    #     return subgraph, node_colors, node_shapes
     
     def get_node_colors_and_shapes(self, subgraph):
 
@@ -121,3 +163,134 @@ class GraphManager:
 
 
         return node_colors, node_shapes
+    
+    # def generate_subgraph_with_database_v2(self, chosen_indication_label, chosen_drug_label, num_drug_nodes, num_indication_nodes, map_drug_diffusion_labels_to_indices, map_indication_diffusion_labels_to_indices, session):
+    #     """
+    #     This function generates a subgraph of Mechanism of Action (MOA) by adding together indications and drug labels. 
+    #     The function then retrieves top num_drug_nodes and num_indication_nodes based on their diffusion profiles.
+    #     """
+
+    #     drug_index = map_drug_diffusion_labels_to_indices[chosen_drug_label]
+    #     indication_index = map_indication_diffusion_labels_to_indices[chosen_indication_label]
+
+    #     top_k_nodes_drug_subgraph = self.get_top_k_drug_node_labels(drug_index, num_drug_nodes)
+    #     top_k_nodes_indication_subgraph = self.get_top_k_indication_node_labels(indication_index, num_indication_nodes)
+
+    #     top_k_nodes_MOA_subgraph = top_k_nodes_drug_subgraph + top_k_nodes_indication_subgraph
+
+    #     # Define a Cypher query to get the subgraph data
+    #     # The exact query would depend on your database schema and the specific data you want to retrieve
+    #     # Make sure to adjust the query to match your use case
+    #     cypher_query = f"""
+    #     MATCH (n)-[r]->(m)
+    #     WHERE n.node IN {top_k_nodes_MOA_subgraph} AND m.node IN {top_k_nodes_MOA_subgraph}
+    #     RETURN n, r, m
+    #     """
+
+    #     # Execute the Cypher query
+    #     result = session.run(cypher_query)
+
+    #     # Convert the result to a networkx graph
+    #     MOA_subgraph = self.convert_neo4j_result_to_networkx_graph(result)
+
+    #     # Get node colors and shapes
+    #     MOA_subgraph_node_colors, MOA_subgraph_node_shapes = self.get_node_colors_and_shapes(MOA_subgraph)
+
+    #     return MOA_subgraph, MOA_subgraph_node_colors, MOA_subgraph_node_shapes
+    
+    def generate_subgraph_with_database(self, chosen_indication_label, chosen_drug_label, num_drug_nodes, num_indication_nodes, map_drug_diffusion_labels_to_indices, map_indication_diffusion_labels_to_indices, session):
+
+        drug_index = map_drug_diffusion_labels_to_indices[chosen_drug_label]
+        indication_index = map_indication_diffusion_labels_to_indices[chosen_indication_label]
+
+        top_k_nodes_drug_subgraph = self.get_top_k_drug_node_labels(drug_index, num_drug_nodes)
+        top_k_nodes_indication_subgraph = self.get_top_k_indication_node_labels(indication_index, num_indication_nodes)
+
+        # Find top_k_nodes from diffusion profile
+        top_k_nodes_MOA_subgraph = top_k_nodes_drug_subgraph + top_k_nodes_indication_subgraph
+
+        # Define a Cypher query to get the subgraph data
+        top_k_nodes_MOA_subgraph = self.convert_numbers_to_strings(top_k_nodes_MOA_subgraph)
+        print(f'top_k_nodes_MOA_subgraph: {top_k_nodes_MOA_subgraph}')
+
+        cypher_query = f"""
+        MATCH (n)
+        WHERE n.node IN {top_k_nodes_MOA_subgraph}
+        OPTIONAL MATCH (n)-[r]->(m)
+        WHERE m.node IN {top_k_nodes_MOA_subgraph}
+        RETURN n, r, m
+        """
+
+        print(f'cypher_query: {cypher_query}')
+
+        # Execute the Cypher query
+        result = session.run(cypher_query)
+
+        print(f'result: {result}')
+        # Convert the result to a networkx graph
+        MOA_subgraph = self.convert_neo4j_result_to_networkx_graph(result)
+
+        print(f'MOA_subgraph: {MOA_subgraph}')
+        print(f'MOA_subgraph.nodes(): {MOA_subgraph.nodes()}')
+
+        # Get node colors and shapes
+        MOA_subgraph_node_colors, MOA_subgraph_node_shapes = self.get_node_colors_and_shapes(MOA_subgraph)
+
+        return MOA_subgraph, MOA_subgraph_node_colors, MOA_subgraph_node_shapes
+    
+    def convert_numbers_to_strings(self, input_list):
+        return [str(item) for item in input_list]
+
+    def convert_strings_to_numbers(self, input_list):
+        return [int(item) if item.isdigit() else item for item in input_list]
+
+
+    def convert_if_digit_string(self, value):
+        return int(value) if str(value).isdigit() else value
+
+    def result_generator(self, result):
+        for record in result:
+            # Get the nodes from the record and convert them if they are digit strings
+            node_n = self.convert_if_digit_string(record['n']['node']) if record['n'] is not None else None
+            node_m = self.convert_if_digit_string(record['m']['node']) if record['m'] is not None else None
+
+            # Get the relationship from the record, if it exists
+            relationship = record['r'] if 'r' in record.keys() and record['r'] is not None else None
+
+            # If there's a relationship, yield the nodes and the relationship
+            if relationship is not None and node_n is not None and node_m is not None:
+                yield node_n, node_m, relationship
+
+    def convert_neo4j_result_to_networkx_graph(self, result):
+        # Create a generator from the result
+        generator = self.result_generator(result)
+
+        # Build the NetworkX graph from the generator
+        graph = nx.Graph()
+        for n, m, r in generator:
+            graph.add_node(n)
+            graph.add_node(m)
+            if r is not None:  # Add the edge only if there's a relationship
+                graph.add_edge(n, m, **r)
+
+        return graph
+
+    def convert_networkx_to_vis_graph_data(self, graph, node_colors, node_shapes):
+        # Create a list of nodes and edges
+        nodes = [{"id": self.mapping_label_to_index[node_label], 
+                "label": f'{self.mapping_all_labels_to_names[node_label]}',
+                "color": node_colors[node_label],
+                "shape": node_shapes[node_label]
+                } 
+                for node_label in graph.nodes]
+        
+        edges = [{"from": self.mapping_label_to_index[edge[0]], 
+                "to": self.mapping_label_to_index[edge[1]],
+                "arrows": "to"
+                } 
+                for edge in graph.edges]
+
+        # Return the graph data
+        return {"nodes": nodes, "edges": edges}
+    
+

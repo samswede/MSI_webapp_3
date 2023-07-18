@@ -11,6 +11,158 @@ neo4j_password = '5gruene8und'
 graph_db = Graph(neo4j_uri, auth=(neo4j_user, neo4j_password))
  """
 
+
+def load_csv_into_neo4j(csv_url, profile_type, session, batch_size=5):
+    """
+    ...
+    """
+    print(f"Starting to load {csv_url} \n into Neo4j as {profile_type}...")
+
+    # Define the Cypher query for loading CSV data
+    query = """
+        UNWIND $batch AS row
+        CREATE (n:{}) 
+        SET n.label = row.label,
+            n.arrayProperty = [val in row WHERE NOT val in ['index', 'label']]
+    """.format(profile_type)
+
+    # Load the CSV file
+    response = requests.get(csv_url)
+
+    print(f'received response for request: {csv_url}')
+
+    response.raise_for_status()  # Raise an exception if the request failed
+    reader = csv.DictReader(response.text.splitlines())
+    batch = []
+
+    print('Starting loop')
+    for i, row in enumerate(reader, start=1):
+        print(f'i: {i}')
+        batch.append(dict(row))
+        if i % batch_size == 0:
+            print(f'beginning transaction')
+            with session.begin_transaction() as tx:
+                tx.run(query, {"batch": batch})
+            print(f"Committed {profile_type} batch {i // batch_size}")
+            batch = []
+    if batch:  # Don't forget the last batch
+        with session.begin_transaction() as tx:
+            tx.run(query, {"batch": batch})
+        print(f"Committed final {profile_type} batch ({len(batch)} rows)")
+
+    print(f"Finished loading {csv_url} into Neo4j.")
+
+def get_diffusion_profile_from_db(chosen_label, profile_type, session):
+    """
+    This function retrieves a diffusion profile for a specific label from the Neo4j database.
+    """
+    # Validate the profile type
+    if profile_type not in ['IndicationProfile', 'DrugProfile']:
+        raise ValueError("Invalid profile type. Expected 'IndicationProfile' or 'DrugProfile'")
+
+    # Define the Cypher query to fetch the diffusion profile for the given label
+    query = f"""
+    MATCH (n:{profile_type})
+    WHERE n.label = '{chosen_label}'
+    RETURN n
+    """
+    
+    # Execute the query
+    result = session.run(query)
+
+    # Check if a matching node was found
+    if result.peek() is None:
+        print(f"No {profile_type} found with label '{chosen_label}'")
+        return None
+    
+    # Get the node corresponding to the label
+    node = result.single()[0]
+
+    # Extract the diffusion profile from the node properties
+    # This assumes that each property is a component of the diffusion profile
+    # If the properties are stored in a different format, you'll need to adjust this code
+    diffusion_profile = [float(value) for key, value in node.items() if key != 'label']
+
+    # Convert the diffusion profile to a numpy array
+    diffusion_profile = np.array(diffusion_profile)
+
+    return diffusion_profile
+
+
+def load_csv_into_neo4j(csv_url, profile_type, session, batch_size=5):
+    """
+    This function loads data from a CSV file into a Neo4j database in batches.
+
+    The function reads the CSV file from the specified URL.
+    It reads the data in batches, with each batch containing a specified number of rows.
+    For each batch, it creates a Neo4j transaction and runs a Cypher query to add the nodes
+    from the batch to the database. After running the query, it commits the transaction.
+
+    Parameters:
+    csv_url (str): The URL of the CSV file.
+    profile_type (str): The label to use for the nodes in the Neo4j database.
+    session (neo4j.Session): The Neo4j session to use for the transactions.
+    batch_size (int): The number of rows to include in each batch. Default is 50000.
+    """
+    print(f"Starting to load {csv_url} \n into Neo4j as {profile_type}...")
+
+    # Define the Cypher query for loading CSV data
+    query = """
+        UNWIND $batch AS row
+        CREATE (n:{})
+        SET n += apoc.map.removeKeys(row, ['index', 'label'])
+    """.format(profile_type)
+
+    # Load the CSV file
+    response = requests.get(csv_url)
+
+    print(f'received response for request: {csv_url}')
+
+    response.raise_for_status()  # Raise an exception if the request failed
+    reader = csv.DictReader(response.text.splitlines())
+    batch = []
+
+    print('Starting loop')
+    for i, row in enumerate(reader, start=1):
+        print(f'i: {i}')
+        batch.append(dict(row))
+        if i % batch_size == 0:
+            print(f'beginning transaction')
+            with session.begin_transaction() as tx:
+                tx.run(query, {"batch": batch})
+            print(f"Committed {profile_type} batch {i // batch_size}")
+            batch = []
+    if batch:  # Don't forget the last batch
+        with session.begin_transaction() as tx:
+            tx.run(query, {"batch": batch})
+        print(f"Committed final {profile_type} batch ({len(batch)} rows)")
+
+    print(f"Finished loading {csv_url} into Neo4j.")
+
+
+
+
+def load_csv_into_neo4j(csv_path, profile_type, session):
+    """
+    This function loads data from a CSV file into a Neo4j database.
+    """
+    print(f"Starting to load {csv_path} into Neo4j as {profile_type}...")
+    
+    # Define the Cypher query for loading CSV data
+    # It includes all columns except 'index' and 'label' as properties
+    query = f"""
+        LOAD CSV WITH HEADERS FROM '{csv_path}' AS row
+        CREATE (n:{profile_type})
+        SET n += apoc.map.removeKeys(row, ['index', 'label'])
+    """
+
+    # Execute the query
+    session.run(query)
+    
+    print(f"Finished loading {csv_path} into Neo4j.")
+
+
+
 def load_MSI_csv_into_neo4j(nodes_csv_path, edges_csv_path, session, batch_size=5000):
     # Define the Cypher query for loading nodes
     nodes_query = f"""
